@@ -4,9 +4,11 @@ module Main (main) where
   
 import Data.Niagra
 import Data.Monoid
-  
-testSelector :: Selector
-testSelector = (a >| h2 .! "myclass") <> (a # "title")
 
 main :: IO ()
-main = putStrLn $ renderSelector $ testSelector
+main = example >>= putStrLn . mconcat . map renderRule
+
+example :: (Monad m) => m [Rule]
+example = css $ do
+  ((a >| h2 .! "myclass") <> (a # "title")) ? do
+    declaration "background-color" "red"

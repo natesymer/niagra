@@ -83,9 +83,9 @@ renderSelector = f
   where
     f Null = ""
     f (Raw v) = v
-    f (Child a b) = mconcat [f a, " > ", f b]
-    f (ImmediatePrecedence a b) = mconcat [f a, " + ", f b]
-    f (Precedence a b) = mconcat [f a, " ~ ", f b]
+    f (Child a b) = mconcat [f a, ">", f b]
+    f (ImmediatePrecedence a b) = mconcat [f a, "+", f b]
+    f (Precedence a b) = mconcat [f a, "~", f b]
     f (Pseudoclassed a (PseudoClass n Nothing)) = mconcat [f a, ":", n]
     f (Pseudoclassed a (PseudoClass n (Just b))) = mconcat [f a,":",n,"(",f b,")"]
     f (Pseudotyped a (PseudoType n Nothing)) = mconcat [f a, "::", n]
