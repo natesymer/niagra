@@ -21,7 +21,8 @@ library
                      Data.Niagra.Selector.Tags
                      Data.Niagra.Selector.Attribute
                      Data.Niagra.Rule
-  -- other-modules:     
+  other-modules:     Data.Niagra.Buildable
+                     Data.Niagra.Rule.FontFace
   hs-source-dirs:    src
   default-language:  Haskell2010
   build-depends:     base >=4.8 && <4.9,
@@ -37,5 +38,6 @@ executable example
   hs-source-dirs:    example
   ghc-options:       -threaded -Wall -O2
   build-depends:     base,
-                     niagra
+                     niagra,
+                     bytestring
   

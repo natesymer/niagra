@@ -11,7 +11,9 @@ module Data.Niagra.Selector
   (~|),
   (<||>),
   (#),
-  (.!),
+  (!),
+  (<:>),
+  (<::>),
   any,
   cls,
   ident,
@@ -19,7 +21,8 @@ module Data.Niagra.Selector
   buildSelector
 )
 where
-  
+
+import Data.Niagra.Buildable
 import Data.Niagra.Selector.Attribute
   
 import Data.String
@@ -33,6 +36,9 @@ import qualified Data.ByteString.Lazy.Char8 as BL
 
 instance IsString Selector where
   fromString = Raw
+  
+instance Buildable Selector where
+  build = buildSelector
   
 data PseudoClass = PseudoClass {
   pcName :: String,
@@ -68,6 +74,21 @@ instance Monoid Selector where
   mappend a b = SelectorList [a,b]
   mconcat xs = SelectorList xs
 
+class Subbable a where
+  appendToSelector :: a -> Selector -> Selector
+  
+instance Subbable Attribute where
+  appendToSelector = flip ByAttribute
+  
+instance Subbable PseudoClass where
+  appendToSelector = flip Pseudoclassed
+  
+instance Subbable PseudoType where
+  appendToSelector = flip Pseudotyped
+  
+instance Subbable Selector where
+  appendToSelector = flip Descendant
+
 {- selector operators -}
 
 -- | Child selector.
@@ -96,9 +117,17 @@ infixl 4 #
 (#) :: Selector -> String -> Selector
 (#) = Id
 
-infixl 4 .!
-(.!) :: Selector -> String -> Selector
-(.!) = Class
+infixl 4 !
+(!) :: Selector -> String -> Selector
+(!) = Class
+
+infixl 4 <:>
+(<:>) :: Selector -> PseudoClass -> Selector
+(<:>) = Pseudoclassed
+
+infixl 4 <::>
+(<::>) :: Selector -> PseudoType -> Selector
+(<::>) = Pseudotyped
 
 any :: Selector
 any = Raw "*"

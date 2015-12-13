@@ -20,11 +20,12 @@ TODO
 1. Operator fixity
 
 -}
-  
+
 import Control.Applicative
 import Data.Monoid
 
 import Data.Either
+import Data.String
 import Data.Char
   
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -34,8 +35,6 @@ import Data.ByteString.Builder
 import Data.Attoparsec.ByteString.Char8 as A (takeWhile1,char,satisfy,eitherResult,parse)
 
 
-import Data.String
--- import Data.List
 
 data Attribute = Existential String -- E[foo]
                | Equality String String -- E[foo="bar"]

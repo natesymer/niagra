@@ -4,20 +4,37 @@ module Main (main) where
   
 import Data.Niagra
 import Data.Monoid
+import Data.ByteString.Builder (Builder,toLazyByteString)
+import qualified Data.ByteString.Lazy.Char8 as BL
 
 main :: IO ()
-main = putStrLn example
+main = BL.putStrLn $ toLazyByteString example
 
-example :: String
-example = css' $ do
+example :: Builder
+example = cssBuilder' $ do
   a # "title" ? do
-    declaration "background-color" "red"
-    declaration "color" "green"
+    "background-color" .= "red"
+    "color"            .= "green"
     
-  a >| (h2 .! "myclass") <> a # "title" ? do
-    declaration "background-color" "red"
-    declaration "color" "green"
+  a >| (h2 ! "myclass") <> a # "title" ? do
+    "background-color" .= "red"
+    "color"            .= "green"
     
-  "h2" <||> ("foo" <^=> "bar") ? do
-    declaration "background-color" "red"
-    declaration "color" "green"
+  ident "this" ? do
+    "position" .= "relative"
+    
+  h2 <||> ("foo" <^=> "bar") ? do
+    "background-color" .= "red"
+    "color"            .= "green"
+    
+  a <:> (PseudoClass "visited" Nothing) ? do
+    "color" .= "red"
+    
+  input ? do
+    "background-color" .= "red"
+    --
+    -- "type" <=> "text" ? do
+    --   -- style for text boxes
+    
+  fontFace $ do
+    "src" .= "url(/assets/fonts/oxygen/Oxygen-Bold.woff2)"
