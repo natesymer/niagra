@@ -6,9 +6,18 @@ import Data.Niagra
 import Data.Monoid
 
 main :: IO ()
-main = example >>= putStrLn . mconcat . map renderRule
+main = putStrLn example
 
-example :: (Monad m) => m [Rule]
-example = css $ do
-  ((a >| h2 .! "myclass") <> (a # "title")) ? do
+example :: String
+example = css' $ do
+  a # "title" ? do
     declaration "background-color" "red"
+    declaration "color" "green"
+    
+  a >| (h2 .! "myclass") <> a # "title" ? do
+    declaration "background-color" "red"
+    declaration "color" "green"
+    
+  "h2" <||> ("foo" <^=> "bar") ? do
+    declaration "background-color" "red"
+    declaration "color" "green"

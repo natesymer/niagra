@@ -19,11 +19,16 @@ library
   exposed-modules:   Data.Niagra
                      Data.Niagra.Selector
                      Data.Niagra.Selector.Tags
-  other-modules:     Data.Niagra.Internal
+                     Data.Niagra.Selector.Attribute
+                     Data.Niagra.Rule
+  -- other-modules:     
   hs-source-dirs:    src
   default-language:  Haskell2010
   build-depends:     base >=4.8 && <4.9,
-                     transformers
+                     transformers,
+                     mtl,
+                     attoparsec,
+                     bytestring
   
 
 executable example
