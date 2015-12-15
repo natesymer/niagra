@@ -35,16 +35,13 @@ example = cssBuilder' $ do
     
     a ? do
       "background-color" .= "green"
-    
-    -- subselector a (Equality "type" "text")] $ do
-    --
-    -- subselector h2 $ return [Right (PseudoClass "visited" Nothing)]
-    --
-    -- "type" <=> "text" ? do
-    --   -- style for text boxes
-  (Raw "@font-face") ? do
+
+    "type" <=> "text" ? do
+      "border" .= "none"
+      
+  fontFace ? do
     "src" .= "url(/assets/fonts/oxygen/Oxygen-Bold.woff2)"
-  --
-  -- Media "screen" ? do
-  --   a ? do
-  --     "background-color" .= "green"
+  
+  media "screen" $ do
+    body ? do
+      "background-color" .= "lightgreen"
