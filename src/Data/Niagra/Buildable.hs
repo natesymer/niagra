@@ -8,3 +8,9 @@ class Buildable a where
   build :: a -> Builder
   render :: a -> String
   render = BL.unpack . toLazyByteString . build
+  
+instance Buildable Builder where
+  build = id
+  
+instance Buildable Char where
+  build = char8

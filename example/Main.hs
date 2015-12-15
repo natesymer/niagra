@@ -15,26 +15,36 @@ example = cssBuilder' $ do
   a # "title" ? do
     "background-color" .= "red"
     "color"            .= "green"
-    
+
   a >| (h2 ! "myclass") <> a # "title" ? do
     "background-color" .= "red"
     "color"            .= "green"
-    
+
   ident "this" ? do
     "position" .= "relative"
-    
+
   h2 <||> ("foo" <^=> "bar") ? do
     "background-color" .= "red"
     "color"            .= "green"
-    
-  a <:> (PseudoClass "visited" Nothing) ? do
+
+  a <:> "visited" ? do
     "color" .= "red"
-    
+
   input ? do
     "background-color" .= "red"
+    
+    a ? do
+      "background-color" .= "green"
+    
+    -- subselector a (Equality "type" "text")] $ do
+    --
+    -- subselector h2 $ return [Right (PseudoClass "visited" Nothing)]
     --
     -- "type" <=> "text" ? do
     --   -- style for text boxes
-    
-  fontFace $ do
+  (Raw "@font-face") ? do
     "src" .= "url(/assets/fonts/oxygen/Oxygen-Bold.woff2)"
+  --
+  -- Media "screen" ? do
+  --   a ? do
+  --     "background-color" .= "green"

@@ -19,10 +19,8 @@ library
   exposed-modules:   Data.Niagra
                      Data.Niagra.Selector
                      Data.Niagra.Selector.Tags
-                     Data.Niagra.Selector.Attribute
-                     Data.Niagra.Rule
+                     Data.Niagra.Block
   other-modules:     Data.Niagra.Buildable
-                     Data.Niagra.Rule.FontFace
   hs-source-dirs:    src
   default-language:  Haskell2010
   build-depends:     base >=4.8 && <4.9,

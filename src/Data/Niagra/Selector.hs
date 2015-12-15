@@ -3,27 +3,30 @@ module Data.Niagra.Selector
 (
   -- * Types
   Selector(..),
-  PseudoType(..),
-  PseudoClass(..),
   -- * Operators
+  (<||>),
   (>|),
   (+|),
   (~|),
-  (<||>),
   (#),
   (!),
   (<:>),
   (<::>),
+  (<=>),
+  (<~=>),
+  (<|=>),
+  (<^=>),
+  (<$=>),
+  (<*=>),
   any,
   cls,
   ident,
-  renderSelector,
-  buildSelector
+  pseudoClass,
+  pseudoType
 )
 where
 
 import Data.Niagra.Buildable
-import Data.Niagra.Selector.Attribute
   
 import Data.String
 
@@ -38,56 +41,68 @@ instance IsString Selector where
   fromString = Raw
   
 instance Buildable Selector where
-  build = buildSelector
-  
-data PseudoClass = PseudoClass {
-  pcName :: String,
-  pcSelector :: Maybe Selector
-} deriving (Eq,Show)
-  
-data PseudoType = PseudoType {
-  ptName :: String,
-  ptSelector :: Maybe Selector
-} deriving (Eq,Show)
-
+  build = f
+    where
+      parens b = char8 '(' <> b <> char8 ')'
+      bracketed b = char8 '[' <> b <> char8 ']'
+      quoted v = char8 '"' <> string8 v <> char8 '"'
+      attr e a v = bracketed $ string8 a <> char8 e <> char8 '=' <> quoted v
+      f Null = string8 ""
+      f (Raw v) = string8 v
+      f (Child a b) = f a <> char8 '>' <> f b
+      f (Descendant a b) = f a <> char8 ' ' <> f b
+      f (ImmediatePrecedence a b) = f a <> char8 '+' <> f b
+      f (Precedence a b) = f a <> char8 '~' <> f b
+      f (PseudoClass a n (Just b)) = f a <> char8 ':' <> string8 n <> parens (f b)
+      f (PseudoClass a n Nothing) = f a <> char8 ':' <> string8 n
+      f (PseudoType a n (Just b)) = f a <> string8 "::" <> string8 n <> parens (f b)
+      f (PseudoType a n Nothing) = f a <> string8 "::" <> string8 n
+      f (Class a cls) = f a <> char8 '.' <> string8 cls
+      f (Id a i) = f a <> char8 '#' <> string8 i
+      f (SelectorList xs) = mconcat $ map f (intersperse (Raw ",") xs)
+      f (AttrExistential s a) = f s <> (bracketed $ string8 a)
+      f (AttrEquality s a v) = f s <> (bracketed $ string8 a) <> char8 '=' <> quoted v
+      f (AttrWhitespaceListContains s a v) = f s <> attr '~' a v
+      f (AttrHyphenListContains s a v) = f s <> attr '|' a v
+      f (AttrBeginsWith s a v) = f s <> attr '^' a v
+      f (AttrEndsWith s a v) = f s <> attr '$' a v
+      f (AttrSubstring s a v) = f s <> attr '*' a v
+      
 --------------------------------------------------------------------------------
 data Selector = Child Selector Selector
-              | ImmediatePrecedence Selector Selector -- Example: a + b
-              | Descendant Selector Selector -- E F an F element descendant of an E element	1
               | Precedence Selector Selector -- Example: a ~ b
-              | Pseudoclassed Selector PseudoClass -- Example: a:hover
-              | Pseudotyped Selector PseudoType -- Example: span::before
+              | ImmediatePrecedence Selector Selector -- Example: a + b
+              | Descendant Selector Selector -- E F an F element descendant of an E element	1 
+              | PseudoClass Selector String (Maybe Selector) -- Example: a:hover or a:not(b)
+              | PseudoType Selector String (Maybe Selector) -- Example: span::before or span::my-pseudotype(b)
+              | AttrExistential Selector String -- E[foo]
+              | AttrEquality Selector String String -- E[foo="bar"]
+              | AttrWhitespaceListContains Selector String String -- E[foo~="bar"]
+              | AttrHyphenListContains Selector String String -- E[foo|="en"]
+              | AttrBeginsWith Selector String String -- E[foo^="bar"]
+              | AttrEndsWith Selector String String -- E[foo$="bar"]
+              | AttrSubstring Selector String String -- E[foo*="bar"]
               | Class Selector String -- Example: h2.myclass
               | Id Selector String -- Example: a#mylink
+              | FontFace -- @font-face
+              | Media String -- @media screen (min-width: 500px)
               | SelectorList [Selector] -- Example: a, h2, .myclass
               | Raw String -- Just a plain string
-              | ByAttribute Selector Attribute -- See 'Attribute'
               | Null
   deriving (Eq,Show)
-
+  
+-- TODO: write @instance Alternative Selector where ...@
+-- use this alternative instance to OR Selectors for the following syntax:
+-- a,h2,h4{..}
+  
 instance Monoid Selector where
   mempty = Null
   mappend Null x = x
   mappend x Null = x
-  mappend (SelectorList xs) x = SelectorList $ x:xs 
+  mappend (SelectorList xs) x = SelectorList $ x:xs
   mappend x (SelectorList xs) = SelectorList $ x:xs
   mappend a b = SelectorList [a,b]
   mconcat xs = SelectorList xs
-
-class Subbable a where
-  appendToSelector :: a -> Selector -> Selector
-  
-instance Subbable Attribute where
-  appendToSelector = flip ByAttribute
-  
-instance Subbable PseudoClass where
-  appendToSelector = flip Pseudoclassed
-  
-instance Subbable PseudoType where
-  appendToSelector = flip Pseudotyped
-  
-instance Subbable Selector where
-  appendToSelector = flip Descendant
 
 {- selector operators -}
 
@@ -109,10 +124,6 @@ infixl 5 ~|
 (~|) :: Selector -> Selector -> Selector
 (~|) = Precedence
 
-infixl 4 <||>
-(<||>) :: Selector -> Attribute -> Selector
-(<||>) = ByAttribute
-
 infixl 4 #
 (#) :: Selector -> String -> Selector
 (#) = Id
@@ -122,15 +133,51 @@ infixl 4 !
 (!) = Class
 
 infixl 4 <:>
-(<:>) :: Selector -> PseudoClass -> Selector
-(<:>) = Pseudoclassed
+(<:>) :: Selector -> String -> Selector
+(<:>) sel n = PseudoClass sel n Nothing
+
+pseudoClass :: String -> Maybe Selector -> Selector
+pseudoClass = PseudoClass Null
 
 infixl 4 <::>
-(<::>) :: Selector -> PseudoType -> Selector
-(<::>) = Pseudotyped
+(<::>) :: Selector -> String -> Selector
+(<::>) sel n = PseudoType sel n Nothing
+
+pseudoType :: String -> Maybe Selector -> Selector
+pseudoType = PseudoType Null
+
+-- |Add aspect operator. Used to construct larger selectors
+-- from smaller ones. Often types, 'Selector's are constructed
+-- with the first argument set to 'Null', eg @Class Null "myclass"@.
+-- You can use this operator to create a selector like this: @h2.myclass@
+-- by doing something like @(Raw "h2") <||> (Class Null "myclass")@ (which
+-- is equivalent to @Class (Raw "h2") "myclass")
+infixl 4 <||>
+(<||>) :: Selector -- selector to add aspect to
+       -> Selector -- aspect
+       -> Selector
+(<||>) s (Child _ c) = Child s c
+(<||>) s (Precedence _ c) = Precedence s c
+(<||>) s (ImmediatePrecedence _ c) = ImmediatePrecedence s c
+(<||>) s (Descendant _ c) = Descendant s c
+(<||>) s (PseudoClass _ c m) = PseudoClass s c m
+(<||>) s (PseudoType _ c m) = PseudoType s c m
+(<||>) s (AttrExistential _ a) = AttrExistential s a
+(<||>) s (AttrEquality _ a b) = AttrEquality s a b
+(<||>) s (AttrWhitespaceListContains _ a l) = AttrWhitespaceListContains s a l
+(<||>) s (AttrHyphenListContains _ a l) = AttrHyphenListContains s a l
+(<||>) s (AttrBeginsWith _ a str) = AttrBeginsWith s a str
+(<||>) s (AttrEndsWith _ a str) = AttrEndsWith s a str
+(<||>) s (AttrSubstring _ a str) = AttrSubstring s a str
+(<||>) s (Id _ i) = Id s i
+(<||>) s (Class _ c) = Class s c
+(<||>) (SelectorList xs) a = SelectorList $ map (\s -> s <||> a) xs
+(<||>) s (Raw _) = s
+(<||>) s Null = s
+(<||>) Null s = s
 
 any :: Selector
-any = Raw "*"
+any = "*"
 
 cls :: String -> Selector
 cls = Class Null
@@ -138,24 +185,34 @@ cls = Class Null
 ident :: String -> Selector
 ident = Id Null
 
-renderSelector :: Selector -> String
-renderSelector = BL.unpack . toLazyByteString . buildSelector
+{- By-Attribute selector operators -}
 
-buildSelector :: Selector -> Builder
-buildSelector = f
-  where
-    parens b = char8 '(' <> b <> char8 ')'
-    f Null = string8 ""
-    f (Raw v) = string8 v
-    f (Child a b) = f a <> char8 '>' <> f b
-    f (Descendant a b) = f a <> char8 ' ' <> f b
-    f (ImmediatePrecedence a b) = f a <> char8 '+' <> f b
-    f (Precedence a b) = f a <> char8 '~' <> f b
-    f (Pseudoclassed a (PseudoClass n Nothing)) = f a <> char8 ':' <> string8 n
-    f (Pseudoclassed a (PseudoClass n (Just b))) = f a <> char8 ':' <> string8 n <> parens (f b)
-    f (Pseudotyped a (PseudoType n Nothing)) = f a <> string8 "::" <> string8 n
-    f (Pseudotyped a (PseudoType n (Just b))) = f a <> string8 "::" <> string8 n <> parens (f b)
-    f (Class a cls) = f a <> char8 '.' <> string8 cls
-    f (Id a i) = f a <> char8 '#' <> string8 i
-    f (SelectorList xs) = mconcat $ map f (intersperse (Raw ",") xs)
-    f (ByAttribute s attr) = f s <> buildAttribute attr
+-- |equality attribute selector
+infixl 3 <=>
+(<=>) :: String -> String -> Selector
+(<=>) = AttrEquality Null
+
+-- | whitespace list contains
+infixl 3 <~=>
+(<~=>) :: String -> String -> Selector
+(<~=>) = AttrWhitespaceListContains Null
+
+-- | hyphen list contains
+infixl 3 <|=>
+(<|=>) :: String -> String -> Selector
+(<|=>) = AttrHyphenListContains Null
+
+-- | beginsWith
+infixl 3 <^=>
+(<^=>) :: String -> String -> Selector
+(<^=>) = AttrBeginsWith Null
+
+-- | ends with
+infixl 3 <$=>
+(<$=>) :: String -> String -> Selector
+(<$=>) = AttrEndsWith Null
+
+-- | substring
+infixl 3 <*=>
+(<*=>) :: String -> String -> Selector
+(<*=>) = AttrSubstring Null
