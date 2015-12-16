@@ -23,7 +23,7 @@ module Data.Niagra.Monad
 )
 where
   
-import Data.Niagra.Block (Block(..),Declaration(..))
+import Data.Niagra.Block
   
 import Data.Either
 import Control.Monad.Trans.Writer
@@ -34,7 +34,7 @@ newtype NiagraT m a = NiagraT (WriterT [Either Declaration Block] m a)
   deriving (Functor, Applicative, Monad, MonadIO)
   
 execNiagraT :: (Monad m) => NiagraT m a -> m [Either Declaration Block]
-execNiagraT (NiagraT w) = execWriterT w
+execNiagraT (NiagraT w) = filter (either (const True) (not . isEmpty)) <$> execWriterT w
 
 -- |Append 'Block's to the 'NiagraT' state.
 writeBlocks :: (Monad m) => [Block] -> NiagraT m ()

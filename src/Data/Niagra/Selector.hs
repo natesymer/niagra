@@ -10,6 +10,21 @@ Portability : POSIX
 Create & manipulate CSS selectors.
 -}
 
+{-
+
+IMPORTANT:
+
+* fixity of operators is always based on argument types.
+
+    * Starting with a fixity of 9, subtract the
+      number of 'Selector' arguments to get a given function's fixity.
+
+* fixity should be greater than 6 (the (<>) operator's fixity)
+
+* operators must be left-associative
+
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra.Selector
 (
@@ -37,7 +52,9 @@ module Data.Niagra.Selector
   cls,
   ident,
   pseudoClass,
-  pseudoType
+  pseudoClass',
+  pseudoType,
+  pseudoType'
 )
 where
 
@@ -122,42 +139,42 @@ instance Monoid Selector where
 {- selector operators -}
 
 -- | Child selector.
-infixl 5 .>.
+infixl 7 .>.
 (.>.) :: Selector -- ^ parent
      -> Selector -- ^ child
      -> Selector
 (.>.) = Child
 
 -- | immediate precedence.
-infixl 5 .+.
+infixl 7 .+.
 (.+.) :: Selector -- ^ first sibling
      -> Selector -- ^ second sibling
      -> Selector
 (.+.) = ImmediatePrecedence
 
 -- |Match a pair of contiguous selectors.
-infixl 5 .~.
+infixl 7 .~.
 (.~.) :: Selector -- ^ first selector
       -> Selector -- ^ second selector
       -> Selector
 (.~.) = Precedence
 
 -- |Match a descendant.
-infixl 5 .|.
+infixl 7 .|.
 (.|.) :: Selector -- ^ ancestor
       -> Selector -- ^ descendant
       -> Selector
 (.|.) = Descendant
 
 -- |Add an id to a Selector.
-infixl 4 #
+infixl 8 #
 (#) :: Selector -- ^ 'Selector' to add id to
     -> Text -- ^ id
     -> Selector
 (#) = Id
 
 -- |Add a class to a 'Selector'.
-infixl 4 !
+infixl 8 !
 (!) :: Selector -- ^ 'Selector' to add class to
     -> Text -- ^ class
     -> Selector
@@ -166,7 +183,7 @@ infixl 4 !
 -- |Add a pseudoclass to a 'Selector'. Does not
 -- allow for a parenthetial statement to be written
 -- as part of the pseudoclass.
-infixl 4 <:>
+infixl 8 <:>
 (<:>) :: Selector -- ^ 'Selector' to add pseudoclass to
       -> Text -- ^ pseudoclass
       -> Selector
@@ -178,10 +195,13 @@ pseudoClass :: Text -- ^ the name of the pseudoclass
             -> Selector
 pseudoClass = PseudoClass Null
 
+pseudoClass' :: Text -> Selector
+pseudoClass' = flip pseudoClass Nothing
+
 -- |Add a pseudotype to a 'Selector'. Does not
 -- allow for a parenthetial statement to be written
 -- as part of the pseudoclass.
-infixl 4 <::>
+infixl 8 <::>
 (<::>) :: Selector -- ^ 'Selector' to add pseudotype to
        -> Text -- ^ pseudotype
        -> Selector
@@ -193,13 +213,16 @@ pseudoType :: Text -- ^ the name of the pseudotype
            -> Selector -- ^
 pseudoType = PseudoType Null
 
+pseudoType' :: Text -> Selector
+pseudoType' = flip pseudoType Nothing
+
 -- |Add aspect operator. Used to construct larger selectors
 -- from smaller ones. Often types, 'Selector's are constructed
 -- with the first argument set to 'Null', eg @Class Null "myclass"@.
 -- You can use this operator to create a selector like this: @h2.myclass@
 -- by doing something like @(Raw "h2") \<||\> (Class Null "myclass")@ (which
 -- is equivalent to @Class (Raw "h2") "myclass"@).
-infixl 4 <||>
+infixl 7 <||>
 (<||>) :: Selector -- selector to add aspect to
        -> Selector -- aspect
        -> Selector
@@ -217,6 +240,7 @@ infixl 4 <||>
 (<||>) s (PseudoClass _ c m) = PseudoClass s c m
 (<||>) s (PseudoType _ c m) = PseudoType s c m
 (<||>) (SelectorList xs) a = SelectorList $ map (\s -> s <||> a) xs
+(<||>) s (SelectorList xs) = SelectorList $ map (\a -> s <||> a) xs
 (<||>) s (Id _ i) = Id s i
 (<||>) s (Class _ c) = Class s c
 -- lineage case
@@ -235,42 +259,42 @@ ident = Id Null
 {- By-Attribute selector operators -}
 
 -- |Equality.
-infixl 3 |=|
+infixl 9 |=|
 (|=|) :: Text -- ^ attribute name
       -> Text -- ^ desired value to test for equality
       -> Selector
 (|=|) = AttrEquality Null
 
 -- |Whitespace-separated list contains.
-infixl 3 |~=|
+infixl 9 |~=|
 (|~=|) :: Text -- ^ attribute name
        -> Text -- ^ value to be found in whitespace-separated list
        -> Selector
 (|~=|) = AttrWhitespaceListContains Null
 
 -- |Hyphen-separated list contains.
-infixl 3 ||=|
+infixl 9 ||=|
 (||=|) :: Text -- ^ attribute name
        -> Text -- ^ value to be found in hyphen-separated list
        -> Selector
 (||=|) = AttrHyphenListContains Null
 
 -- |Begins with.
-infixl 3 |^=|
+infixl 9 |^=|
 (|^=|) :: Text -- ^ attribute name
        -> Text -- ^ string beginning
        -> Selector
 (|^=|) = AttrBeginsWith Null
 
 -- |Ends with.
-infixl 3 |$=|
+infixl 9 |$=|
 (|$=|) :: Text -- ^ attribute name
        -> Text -- ^ string ending
        -> Selector
 (|$=|) = AttrEndsWith Null
 
 -- |Substring.
-infixl 3 |*=|
+infixl 9 |*=|
 (|*=|) :: Text -- ^ attribute name
        -> Text -- ^ substring in attribute
        -> Selector

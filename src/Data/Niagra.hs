@@ -31,7 +31,8 @@ module Data.Niagra
   module Data.Niagra.Monad,
   module Data.Niagra.Block,
   module Data.Niagra.Selector,
-  module Data.Niagra.Selector.Tags
+  module Data.Niagra.Selector.Tags,
+  module Data.Niagra.Selector.Combinators
 )
 where
 
@@ -40,6 +41,7 @@ import Data.Niagra.Monad
 import Data.Niagra.Block
 import Data.Niagra.Selector
 import Data.Niagra.Selector.Tags
+import Data.Niagra.Selector.Combinators
 
 import Data.Either
 
@@ -52,7 +54,6 @@ TODO (in no particular order)
 
 * wrappers around 'declaration'
 * more operators
-* operator precedence
 -}
 
 -- |Start a CSS declaration in monad @m@.
@@ -77,12 +78,14 @@ cssBuilder' = runIdentity . cssBuilder
 block :: (Monad m) => Selector -- ^ block's selector that
                    -> NiagraT (NiagraT m) () -- ^ the block
                    -> NiagraT m ()
-block b act = niagraState act >>= writeBlocks . uncurry f
-  where f l = (:) (DeclarationBlock b l) . map appendSel
-          where appendSel (DeclarationBlock b2 d2) = DeclarationBlock (b <||> b2) d2
+block s act = niagraState act >>= writeBlocks . uncurry f
+  where f decls blocks = (DeclarationBlock s decls):(map prependSel blocks)
+          where prependSel (DeclarationBlock s2 d2) = DeclarationBlock (s <||> s2) d2
+                prependSel (BuilderBlock s2 b2) = BuilderBlock (s <||> s2) b2 
+                
 
 -- |Operator equivalent of 'block'.
-infix 2 ?
+infix 0 ?
 (?) :: (Monad m) => Selector -> NiagraT (NiagraT m) () -> NiagraT m ()
 (?) = block
 
@@ -93,6 +96,6 @@ declaration :: (Monad m) => Text -- ^ property
 declaration p v = writeDeclarations [Declaration p v]
 
 -- |Operator equivalent of 'declaration'.
-infix 2 .=
+infix 0 .=
 (.=) :: (Monad m) => Text -> Text -> NiagraT (NiagraT m) ()
 (.=) = declaration

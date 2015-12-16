@@ -16,10 +16,10 @@ module Data.Niagra.Block
   -- * Types
   Block(..),
   Declaration(..),
+  -- * Predicates
+  isEmpty,
   -- * Builder
   buildBlock,
-  -- * DSL
-  
 )
 where
 
@@ -30,11 +30,19 @@ import Data.Text.Lazy (Text)
 import Data.Text.Lazy.Builder
 
 -- |A single declaration
-data Declaration = Declaration Text Text
+data Declaration = Declaration Text Text deriving (Show)
 
 -- |Block data structure.
-data Block = DeclarationBlock Selector [Declaration] -- ^ Create a block with a declaration list for a body
+data Block = DeclarationBlock Selector [Declaration]-- ^ Create a block with a declaration list for a body
            | BuilderBlock Selector Builder -- ^ create a block with a builder body
+
+instance Show Block where
+  show (DeclarationBlock s decls) = "(DeclarationBlock (" ++ show s ++ ") " ++ show decls ++ ")"
+
+-- |Determine if a block is empty.
+isEmpty :: Block -> Bool
+isEmpty (DeclarationBlock _ d2) = null d2
+isEmpty (BuilderBlock _ b2) = b2 == mempty
 
 -- |Build a string from a 'Block'
 buildBlock :: Block -- ^ block to render

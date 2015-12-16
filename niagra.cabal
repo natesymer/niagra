@@ -19,6 +19,7 @@ library
                      Data.Niagra.Block
                      Data.Niagra.Selector
                      Data.Niagra.Selector.Tags
+                     Data.Niagra.Selector.Combinators
                      Data.Niagra.At
                      Data.Niagra.At.FontFace
                      Data.Niagra.At.Media
