@@ -1,7 +1,8 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra
 (
   -- * Modules
-  module Data.Niagra.Monad
+  module Data.Niagra.Monad,
   module Data.Niagra.Block,
   module Data.Niagra.Selector,
   module Data.Niagra.Selector.Tags,
@@ -68,20 +69,20 @@ infix 2 ?
 (?) = block
 
 -- |Make a declaration.
-declaration :: (Monad m) => String -- ^ property
-                         -> String -- ^ value
+declaration :: (Monad m) => Text -- ^ property
+                         -> Text -- ^ value
                          -> NiagraT (NiagraT m) ()
 declaration p v = writeDeclarations [Declaration p v]
 
 -- |Operator equivalent of 'declaration'.
 infix 2 .=
-(.=) :: (Monad m) => String -> String -> NiagraT (NiagraT m) ()
+(.=) :: (Monad m) => Text -> Text -> NiagraT (NiagraT m) ()
 (.=) = declaration
 
 -- |A @media query.
-media :: (Monad m) => String
+media :: (Monad m) => Text
                    -> NiagraT (NiagraT m) () -- ^ content of the @media query
                    -> NiagraT m ()
 media str act = cssBuilder act >>= writeBlocks . f
   where f b = [BuilderBlock sel b]
-        sel = Raw $ "@media " ++ str
+        sel = Raw $ mappend "@media " str

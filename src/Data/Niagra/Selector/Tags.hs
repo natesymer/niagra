@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra.Selector.Tags
 (
   html,
@@ -66,178 +67,178 @@ import Data.Niagra.Selector
 import Prelude hiding (div,span)
 
 html :: Selector
-html = Raw "html"
+html =  "html"
 
 body :: Selector
-body = Raw "body"
+body =  "body"
 
 a :: Selector
-a = Raw "a"
+a =  "a"
 
 h1 :: Selector
-h1 = Raw "h1"
+h1 =  "h1"
 
 h2 :: Selector
-h2 = Raw "h2"
+h2 =  "h2"
 
 h3 :: Selector
-h3 = Raw "h3"
+h3 =  "h3"
 
 h4 :: Selector
-h4 = Raw "h4"
+h4 =  "h4"
 
 h5 :: Selector
-h5 = Raw "h5"
+h5 =  "h5"
 
 h6 :: Selector
-h6 = Raw "h6"
+h6 =  "h6"
 
 p :: Selector
-p = Raw "p"
+p =  "p"
 
 br :: Selector
-br = Raw "br"
+br =  "br"
 
 hr :: Selector
-hr = Raw "hr"
+hr =  "hr"
 
 div :: Selector
-div = Raw "div"
+div =  "div"
 
 span :: Selector
-span = Raw "span"
+span =  "span"
 
 header :: Selector
-header = Raw "header"
+header =  "header"
 
 footer :: Selector
-footer = Raw "footer"
+footer =  "footer"
 
 table :: Selector
-table = Raw "table"
+table =  "table"
 
 caption :: Selector
-caption = Raw "caption"
+caption =  "caption"
 
 th :: Selector
-th = Raw "th"
+th =  "th"
 
 tr :: Selector
-tr = Raw "tr"
+tr =  "tr"
 
 td :: Selector
-td = Raw "td"
+td =  "td"
 
 thead :: Selector
-thead = Raw "thead"
+thead =  "thead"
 
 tbody :: Selector
-tbody = Raw "tbody"
+tbody =  "tbody"
 
 tfoot :: Selector
-tfoot = Raw "tfoot"
+tfoot =  "tfoot"
 
 col :: Selector
-col = Raw "col"
+col =  "col"
 
 colgroup :: Selector
-colgroup = Raw "colgroup"
+colgroup =  "colgroup"
 
 ul :: Selector
-ul = Raw "ul"
+ul =  "ul"
 
 ol :: Selector
-ol = Raw "ol"
+ol =  "ol"
 
 li :: Selector
-li = Raw "li"
+li =  "li"
 
 dl :: Selector
-dl = Raw "dl"
+dl =  "dl"
 
 dt :: Selector
-dt = Raw "dt"
+dt =  "dt"
 
 dd :: Selector
-dd = Raw "dd"
+dd =  "dd"
 
 img :: Selector
-img = Raw "img"
+img =  "img"
 
 canvas :: Selector
-canvas = Raw "canvas"
+canvas =  "canvas"
 
 iframe :: Selector
-iframe = Raw "iframe"
+iframe =  "iframe"
   
 form :: Selector
-form = Raw "form"
+form =  "form"
 
 input :: Selector
-input = Raw "input"
+input =  "input"
 
 textarea :: Selector
-textarea = Raw "textarea"
+textarea = "textarea"
 
 button :: Selector
-button = Raw "button"
+button = "button"
 
 label :: Selector
-label = Raw "label"
+label = "label"
 
 b :: Selector
-b = Raw "b"
+b = "b"
 
 bdi :: Selector
-bdi = Raw "bdi"
+bdi = "bdi"
 
 bdo :: Selector
-bdo = Raw "bdo"
+bdo = "bdo"
 
 blockquote :: Selector
-blockquote = Raw "blockquote"
+blockquote = "blockquote"
 
 cite :: Selector
-cite = Raw "cite"
+cite = "cite"
 
 code :: Selector
-code = Raw "code"
+code = "code"
 
 em :: Selector
-em = Raw "em"
+em = "em"
 
 i :: Selector
-i = Raw "i"
+i = "i"
 
 pre :: Selector
-pre = Raw "pre"
+pre = "pre"
 
 q :: Selector
-q = Raw "q"
+q = "q"
 
 s :: Selector
-s = Raw "s"
+s = "s"
 
 samp :: Selector
-samp = Raw "samp"
+samp = "samp"
 
 small :: Selector
-small = Raw "small"
+small = "small"
 
 strong :: Selector
-strong = Raw "strong"
+strong = "strong"
 
 sub :: Selector
-sub = Raw "sub"
+sub = "sub"
 
 sup :: Selector
-sup = Raw "sup"
+sup = "sup"
 
 time :: Selector
-time = Raw "time"
+time = "time"
 
 u :: Selector
-u = Raw "u"
+u = "u"
 
 wbr :: Selector
-wbr = Raw "wbr"
+wbr = "wbr"

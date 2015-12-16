@@ -35,31 +35,33 @@ import Data.Monoid
 import Data.List (intersperse)
 import Prelude hiding (any)
 
+import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Builder
 
 data Selector = Child Selector Selector
               | Precedence Selector Selector -- Example: a ~ b
               | ImmediatePrecedence Selector Selector -- Example: a + b
               | Descendant Selector Selector -- E F an F element descendant of an E element	1 
-              | PseudoClass Selector String (Maybe Selector) -- Example: a:hover or a:not(b)
-              | PseudoType Selector String (Maybe Selector) -- Example: span::before or span::my-pseudotype(b)
-              | AttrExistential Selector String -- E[foo]
-              | AttrEquality Selector String String -- E[foo="bar"]
-              | AttrWhitespaceListContains Selector String String -- E[foo~="bar"]
-              | AttrHyphenListContains Selector String String -- E[foo|="en"]
-              | AttrBeginsWith Selector String String -- E[foo^="bar"]
-              | AttrEndsWith Selector String String -- E[foo$="bar"]
-              | AttrSubstring Selector String String -- E[foo*="bar"]
-              | Class Selector String -- Example: h2.myclass
-              | Id Selector String -- Example: a#mylink
+              | PseudoClass Selector Text (Maybe Selector) -- Example: a:hover or a:not(b)
+              | PseudoType Selector Text (Maybe Selector) -- Example: span::before or span::my-pseudotype(b)
+              | AttrExistential Selector Text -- E[foo]
+              | AttrEquality Selector Text Text -- E[foo="bar"]
+              | AttrWhitespaceListContains Selector Text Text -- E[foo~="bar"]
+              | AttrHyphenListContains Selector Text Text -- E[foo|="en"]
+              | AttrBeginsWith Selector Text Text -- E[foo^="bar"]
+              | AttrEndsWith Selector Text Text -- E[foo$="bar"]
+              | AttrSubstring Selector Text Text -- E[foo*="bar"]
+              | Class Selector Text -- Example: h2.myclass
+              | Id Selector Text -- Example: a#mylink
               | FontFace -- @font-face
               | SelectorList [Selector] -- Example: a, h2, .myclass
-              | Raw String -- Just a plain string
+              | Raw Text -- Just a plain string
               | Null
   deriving (Eq,Show)
 
 instance S.IsString Selector where
-  fromString = Raw
+  fromString = Raw . TL.pack
   
 buildSelector :: Selector -> Builder
 buildSelector = f
@@ -68,23 +70,23 @@ buildSelector = f
     parens = between '(' ')'
     bracketed = between '[' ']'
     curlyb = between '{' '}'
-    quoted = between '"' '"' . fromString
-    attr e a v = bracketed $ fromString a <> singleton e <> singleton '=' <> quoted v
+    quoted = between '"' '"' . fromLazyText
+    attr e a v = bracketed $ fromLazyText a <> singleton e <> "=" <> quoted v
     f Null = mempty
-    f (Raw v) = fromString v
-    f (Child a b) = f a <> singleton '>' <> f b
-    f (Descendant a b) = f a <> singleton ' ' <> f b
-    f (ImmediatePrecedence a b) = f a <> singleton '+' <> f b
-    f (Precedence a b) = f a <> singleton '~' <> f b
-    f (PseudoClass a n (Just b)) = f a <> singleton ':' <> fromString n <> parens (f b)
-    f (PseudoClass a n Nothing) = f a <> singleton ':' <> fromString n
-    f (PseudoType a n (Just b)) = f a <> fromString "::" <> fromString n <> parens (f b)
-    f (PseudoType a n Nothing) = f a <> fromString "::" <> fromString n
-    f (Class a cls) = f a <> singleton '.' <> fromString cls
-    f (Id a i) = f a <> singleton '#' <> fromString i
-    f (SelectorList xs) = mconcat $ map f (intersperse (Raw ",") xs)
-    f (AttrExistential s a) = f s <> (bracketed $ fromString a)
-    f (AttrEquality s a v) = f s <> bracketed (fromString a <> singleton '=' <> quoted v)
+    f (Raw v) = fromLazyText v
+    f (Child a b) = f a <> ">" <> f b
+    f (Descendant a b) = f a <> " " <> f b
+    f (ImmediatePrecedence a b) = f a <> "+" <> f b
+    f (Precedence a b) = f a <> "~" <> f b
+    f (PseudoClass a n (Just b)) = f a <> ":" <> fromLazyText n <> parens (f b)
+    f (PseudoClass a n Nothing) = f a <> ":" <> fromLazyText n
+    f (PseudoType a n (Just b)) = f a <> "::" <> fromLazyText n <> parens (f b)
+    f (PseudoType a n Nothing) = f a <> "::" <> fromLazyText n
+    f (Class a cls) = f a <> "." <> fromLazyText cls
+    f (Id a i) = f a <> "#" <> fromLazyText i
+    f (SelectorList xs) = mconcat $ map f (intersperse "," xs)
+    f (AttrExistential s a) = f s <> bracketed (fromLazyText a)
+    f (AttrEquality s a v) = f s <> bracketed (fromLazyText a <> "=" <> quoted v)
     f (AttrWhitespaceListContains s a v) = f s <> attr '~' a v
     f (AttrHyphenListContains s a v) = f s <> attr '|' a v
     f (AttrBeginsWith s a v) = f s <> attr '^' a v
@@ -121,30 +123,37 @@ infixl 5 +|
      -> Selector
 (+|) = ImmediatePrecedence
 
+-- |Match a pair of contiguous selectors
 infixl 5 ~|
 (~|) :: Selector -> Selector -> Selector
 (~|) = Precedence
 
+-- |Add an id to a Selector.
 infixl 4 #
-(#) :: Selector -> String -> Selector
+(#) :: Selector -- ^ 'Selector' to add id to
+    -> Text -- ^ id
+    -> Selector
 (#) = Id
 
+-- |Add a class to a 'Selector'.
 infixl 4 !
-(!) :: Selector -> String -> Selector
+(!) :: Selector -- ^ 'Selector' to add class to
+    -> Text -- ^ class
+    -> Selector
 (!) = Class
 
 infixl 4 <:>
-(<:>) :: Selector -> String -> Selector
+(<:>) :: Selector -> Text -> Selector
 (<:>) sel n = PseudoClass sel n Nothing
 
-pseudoClass :: String -> Maybe Selector -> Selector
+pseudoClass :: Text -> Maybe Selector -> Selector
 pseudoClass = PseudoClass Null
 
 infixl 4 <::>
-(<::>) :: Selector -> String -> Selector
+(<::>) :: Selector -> Text -> Selector
 (<::>) sel n = PseudoType sel n Nothing
 
-pseudoType :: String -> Maybe Selector -> Selector
+pseudoType :: Text -> Maybe Selector -> Selector
 pseudoType = PseudoType Null
 
 -- |Add aspect operator. Used to construct larger selectors
@@ -176,14 +185,13 @@ infixl 4 <||>
 -- lineage case
 (<||>) s s' = Descendant s s'
 
-
 any :: Selector
 any = "*"
 
-cls :: String -> Selector
+cls :: Text -> Selector
 cls = Class Null
 
-ident :: String -> Selector
+ident :: Text -> Selector
 ident = Id Null
 
 fontFace :: Selector
@@ -193,30 +201,30 @@ fontFace = FontFace
 
 -- |equality attribute selector
 infixl 3 <=>
-(<=>) :: String -> String -> Selector
+(<=>) :: Text -> Text -> Selector
 (<=>) = AttrEquality Null
 
 -- | whitespace list contains
 infixl 3 <~=>
-(<~=>) :: String -> String -> Selector
+(<~=>) :: Text -> Text -> Selector
 (<~=>) = AttrWhitespaceListContains Null
 
 -- | hyphen list contains
 infixl 3 <|=>
-(<|=>) :: String -> String -> Selector
+(<|=>) :: Text -> Text -> Selector
 (<|=>) = AttrHyphenListContains Null
 
 -- | beginsWith
 infixl 3 <^=>
-(<^=>) :: String -> String -> Selector
+(<^=>) :: Text -> Text -> Selector
 (<^=>) = AttrBeginsWith Null
 
 -- | ends with
 infixl 3 <$=>
-(<$=>) :: String -> String -> Selector
+(<$=>) :: Text -> Text -> Selector
 (<$=>) = AttrEndsWith Null
 
 -- | substring
 infixl 3 <*=>
-(<*=>) :: String -> String -> Selector
+(<*=>) :: Text -> Text -> Selector
 (<*=>) = AttrSubstring Null

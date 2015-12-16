@@ -4,14 +4,15 @@ module Main (main) where
   
 import Data.Niagra
 import Data.Monoid
+import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as TL
-import Data.Text.Lazy.Builder
+import Control.Monad.IO.Class
 
 main :: IO ()
-main = TL.putStrLn $ toLazyText example
+main = example >>= TL.putStrLn
 
-example :: Builder
-example = cssBuilder' $ do
+example :: IO Text
+example = css $ do
   a # "title" ? do
     "background-color" .= "red"
     "color"            .= "green"

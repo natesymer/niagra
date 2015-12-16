@@ -9,13 +9,14 @@ module Data.Niagra.Monad
 where
   
 import Control.Monad.Trans.Writer
+import Control.Monad.IO.Class
 
 import Data.Niagra.Block (Block(..),Declaration(..))
 
 import Data.Either
   
 newtype NiagraT m a = NiagraT { niagraWriter :: WriterT [Either Declaration Block] m a }
-  deriving (Functor, Applicative, Monad)
+  deriving (Functor, Applicative, Monad, MonadIO)
   
 execNiagraT :: (Monad m) => NiagraT m a -> m [Either Declaration Block]
 execNiagraT = execWriterT . niagraWriter
