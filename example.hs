@@ -6,7 +6,6 @@ import Data.Niagra
 import Data.Monoid
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as TL
-import Control.Monad.IO.Class
 
 main :: IO ()
 main = example >>= TL.putStrLn
@@ -17,14 +16,14 @@ example = css $ do
     "background-color" .= "red"
     "color"            .= "green"
 
-  a >| (h2 ! "myclass") <> a # "title" ? do
+  a .>. (h2 ! "myclass") <> a # "title" ? do
     "background-color" .= "red"
     "color"            .= "green"
 
   ident "this" ? do
     "position" .= "relative"
 
-  h2 <||> ("foo" <^=> "bar") ? do
+  h2 <||> ("foo" |^=| "bar") ? do
     "background-color" .= "red"
     "color"            .= "green"
 
@@ -37,10 +36,10 @@ example = css $ do
     a ? do
       "background-color" .= "green"
 
-    "type" <=> "text" ? do
+    "type" |=| "text" ? do
       "border" .= "none"
       
-  fontFace ? do
+  fontFace $ do
     "src" .= "url(/assets/fonts/oxygen/Oxygen-Bold.woff2)"
   
   media "screen" $ do

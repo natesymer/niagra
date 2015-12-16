@@ -1,3 +1,15 @@
+{-|
+Module      : Data.Niagra.Selector
+Description : Selector type and combinator operators
+Copyright   : (c) Nathaniel Symer, 2015
+License     : MIT
+Maintainer  : nate@symer.io
+Stability   : experimental
+Portability : POSIX
+
+Create & manipulate CSS selectors.
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra.Selector
 (
@@ -7,23 +19,23 @@ module Data.Niagra.Selector
   buildSelector,
   -- * Operators
   (<||>),
-  (>|),
-  (+|),
-  (~|),
+  -- ** Selector Operators
+  (.>.),
+  (.+.),
+  (.~.),
   (#),
   (!),
   (<:>),
   (<::>),
-  (<=>),
-  (<~=>),
-  (<|=>),
-  (<^=>),
-  (<$=>),
-  (<*=>),
-  any,
+  -- ** Attribute Operators
+  (|=|),
+  (|~=|),
+  (||=|),
+  (|^=|),
+  (|$=|),
+  (|*=|),
   cls,
   ident,
-  fontFace,
   pseudoClass,
   pseudoType
 )
@@ -32,31 +44,30 @@ where
 import Data.Monoid
 import Data.List (intersperse)
 import qualified Data.String as S
-import Prelude hiding (any)
 
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as TL
 import Data.Text.Lazy.Builder
 
 -- |A CSS selector
-data Selector = Child Selector Selector -- ^ @a b@
+data Selector = Child Selector Selector -- ^ @a > b@
               | Precedence Selector Selector -- ^ @a ~ b@
               | ImmediatePrecedence Selector Selector -- ^ @a + b@
-              | Descendant Selector Selector -- E F an F element descendant of an E element	1 
-              | PseudoClass Selector Text (Maybe Selector) -- @a:hover@ or @a:not(b)@
-              | PseudoType Selector Text (Maybe Selector) -- @span::before@ or @span::my-pseudotype(b)@
-              | AttrExistential Selector Text -- @h2[foo]@
-              | AttrEquality Selector Text Text -- @h2[foo="bar"]@
-              | AttrWhitespaceListContains Selector Text Text -- @h2[foo~="bar"]@
-              | AttrHyphenListContains Selector Text Text -- @h2[foo|="en"]@
-              | AttrBeginsWith Selector Text Text -- @h2[foo^="bar"]@
-              | AttrEndsWith Selector Text Text -- @h2[foo$="bar"]@
-              | AttrSubstring Selector Text Text -- @h2[foo*="bar"]@
-              | Class Selector Text -- @h2.myclass@
-              | Id Selector Text -- @a#mylink@
-              | FontFace -- @@font-face@
-              | SelectorList [Selector] -- @a, h2, .myclass@
-              | Raw Text -- plain string to be rendered-as is in CSS
+              | Descendant Selector Selector -- ^ @a b@
+              | PseudoClass Selector Text (Maybe Selector) -- ^ @a:hover, a:not(b)@
+              | PseudoType Selector Text (Maybe Selector) -- ^ @span::before, span::my-pseudotype(b)@
+              | AttrExistential Selector Text -- ^ @h2[foo]@
+              | AttrEquality Selector Text Text -- ^ @h2[foo="bar"]@
+              | AttrWhitespaceListContains Selector Text Text -- ^ @h2[foo~="bar"]@
+              | AttrHyphenListContains Selector Text Text -- ^ @h2[foo|="en"]@
+              | AttrBeginsWith Selector Text Text -- ^ @h2[foo^="bar"]@
+              | AttrEndsWith Selector Text Text -- ^ @h2[foo$="bar"]@
+              | AttrSubstring Selector Text Text -- ^ @h2[foo*="bar"]@
+              | Class Selector Text -- ^ @h2.myclass@
+              | Id Selector Text -- ^ @a#mylink@
+              | FontFace -- ^ @@font-face@
+              | SelectorList [Selector] -- ^ @a, h2, .myclass@
+              | Raw Text -- ^ plain string to be rendered-as is in CSS
               | Null -- ^ null string
   deriving (Eq,Show)
 
@@ -111,23 +122,32 @@ instance Monoid Selector where
 {- selector operators -}
 
 -- | Child selector.
-infixl 5 >|
-(>|) :: Selector -- ^ parent
+infixl 5 .>.
+(.>.) :: Selector -- ^ parent
      -> Selector -- ^ child
      -> Selector
-(>|) = Child
+(.>.) = Child
 
--- | immediate precedence
-infixl 5 +|
-(+|) :: Selector -- ^ first sibling
+-- | immediate precedence.
+infixl 5 .+.
+(.+.) :: Selector -- ^ first sibling
      -> Selector -- ^ second sibling
      -> Selector
-(+|) = ImmediatePrecedence
+(.+.) = ImmediatePrecedence
 
--- |Match a pair of contiguous selectors
-infixl 5 ~|
-(~|) :: Selector -> Selector -> Selector
-(~|) = Precedence
+-- |Match a pair of contiguous selectors.
+infixl 5 .~.
+(.~.) :: Selector -- ^ first selector
+      -> Selector -- ^ second selector
+      -> Selector
+(.~.) = Precedence
+
+-- |Match a descendant.
+infixl 5 .|.
+(.|.) :: Selector -- ^ ancestor
+      -> Selector -- ^ descendant
+      -> Selector
+(.|.) = Descendant
 
 -- |Add an id to a Selector.
 infixl 4 #
@@ -177,8 +197,8 @@ pseudoType = PseudoType Null
 -- from smaller ones. Often types, 'Selector's are constructed
 -- with the first argument set to 'Null', eg @Class Null "myclass"@.
 -- You can use this operator to create a selector like this: @h2.myclass@
--- by doing something like @(Raw "h2") <||> (Class Null "myclass")@ (which
--- is equivalent to @Class (Raw "h2") "myclass").
+-- by doing something like @(Raw "h2") \<||\> (Class Null "myclass")@ (which
+-- is equivalent to @Class (Raw "h2") "myclass"@).
 infixl 4 <||>
 (<||>) :: Selector -- selector to add aspect to
        -> Selector -- aspect
@@ -202,64 +222,56 @@ infixl 4 <||>
 -- lineage case
 (<||>) s s' = Descendant s s'
 
--- |The universal matching selector (@*@).
-any :: Selector
-any = "*"
-
 -- |Create a CSS @class@.
 cls :: Text -- ^ name of the @class@
     -> Selector
 cls = Class Null
 
 -- |Create an CSS @id@.
-ident :: Text -- name of the @id@
+ident :: Text -- ^ name of the @id@
       -> Selector
 ident = Id Null
 
--- |Create a @@font-face@
-fontFace :: Selector
-fontFace = FontFace
-
 {- By-Attribute selector operators -}
 
--- |equality attribute selector
-infixl 3 <=>
-(<=>) :: Text
-      -> Text
+-- |Equality.
+infixl 3 |=|
+(|=|) :: Text -- ^ attribute name
+      -> Text -- ^ desired value to test for equality
       -> Selector
-(<=>) = AttrEquality Null
+(|=|) = AttrEquality Null
 
--- | whitespace list contains
-infixl 3 <~=>
-(<~=>) :: Text -- ^ attribute name
+-- |Whitespace-separated list contains.
+infixl 3 |~=|
+(|~=|) :: Text -- ^ attribute name
        -> Text -- ^ value to be found in whitespace-separated list
        -> Selector
-(<~=>) = AttrWhitespaceListContains Null
+(|~=|) = AttrWhitespaceListContains Null
 
--- | hyphen list contains
-infixl 3 <|=>
-(<|=>) :: Text -- ^ attribute name
+-- |Hyphen-separated list contains.
+infixl 3 ||=|
+(||=|) :: Text -- ^ attribute name
        -> Text -- ^ value to be found in hyphen-separated list
        -> Selector
-(<|=>) = AttrHyphenListContains Null
+(||=|) = AttrHyphenListContains Null
 
--- | beginsWith
-infixl 3 <^=>
-(<^=>) :: Text -- ^ attribute name
+-- |Begins with.
+infixl 3 |^=|
+(|^=|) :: Text -- ^ attribute name
        -> Text -- ^ string beginning
        -> Selector
-(<^=>) = AttrBeginsWith Null
+(|^=|) = AttrBeginsWith Null
 
--- | ends with
-infixl 3 <$=>
-(<$=>) :: Text -- ^ attribute name
+-- |Ends with.
+infixl 3 |$=|
+(|$=|) :: Text -- ^ attribute name
        -> Text -- ^ string ending
        -> Selector
-(<$=>) = AttrEndsWith Null
+(|$=|) = AttrEndsWith Null
 
--- | substring
-infixl 3 <*=>
-(<*=>) :: Text -- ^ attribute name
+-- |Substring.
+infixl 3 |*=|
+(|*=|) :: Text -- ^ attribute name
        -> Text -- ^ substring in attribute
        -> Selector
-(<*=>) = AttrSubstring Null
+(|*=|) = AttrSubstring Null

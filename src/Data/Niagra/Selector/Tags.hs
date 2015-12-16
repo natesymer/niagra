@@ -1,6 +1,20 @@
+{-|
+Module      : Data.Niagra.Selector.Tags
+Description : CSS selectors for HTML tags
+Copyright   : (c) Nathaniel Symer, 2015
+License     : MIT
+Maintainer  : nate@symer.io
+Stability   : experimental
+Portability : POSIX
+
+CSS selectors for HTML tags
+
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra.Selector.Tags
 (
+  any,
   html,
   body,
   a,
@@ -64,118 +78,121 @@ module Data.Niagra.Selector.Tags
 where
   
 import Data.Niagra.Selector
-import Prelude hiding (div,span)
+import Prelude hiding (any,div,span)
+
+any :: Selector
+any = "*"
 
 html :: Selector
-html =  "html"
+html = "html"
 
 body :: Selector
-body =  "body"
+body = "body"
 
 a :: Selector
-a =  "a"
+a = "a"
 
 h1 :: Selector
-h1 =  "h1"
+h1 = "h1"
 
 h2 :: Selector
-h2 =  "h2"
+h2 = "h2"
 
 h3 :: Selector
-h3 =  "h3"
+h3 = "h3"
 
 h4 :: Selector
-h4 =  "h4"
+h4 = "h4"
 
 h5 :: Selector
-h5 =  "h5"
+h5 = "h5"
 
 h6 :: Selector
-h6 =  "h6"
+h6 = "h6"
 
 p :: Selector
-p =  "p"
+p = "p"
 
 br :: Selector
-br =  "br"
+br = "br"
 
 hr :: Selector
-hr =  "hr"
+hr = "hr"
 
 div :: Selector
-div =  "div"
+div = "div"
 
 span :: Selector
-span =  "span"
+span = "span"
 
 header :: Selector
-header =  "header"
+header = "header"
 
 footer :: Selector
-footer =  "footer"
+footer = "footer"
 
 table :: Selector
-table =  "table"
+table = "table"
 
 caption :: Selector
-caption =  "caption"
+caption = "caption"
 
 th :: Selector
-th =  "th"
+th = "th"
 
 tr :: Selector
-tr =  "tr"
+tr = "tr"
 
 td :: Selector
-td =  "td"
+td = "td"
 
 thead :: Selector
-thead =  "thead"
+thead = "thead"
 
 tbody :: Selector
-tbody =  "tbody"
+tbody = "tbody"
 
 tfoot :: Selector
-tfoot =  "tfoot"
+tfoot = "tfoot"
 
 col :: Selector
-col =  "col"
+col = "col"
 
 colgroup :: Selector
-colgroup =  "colgroup"
+colgroup = "colgroup"
 
 ul :: Selector
-ul =  "ul"
+ul = "ul"
 
 ol :: Selector
-ol =  "ol"
+ol = "ol"
 
 li :: Selector
-li =  "li"
+li = "li"
 
 dl :: Selector
-dl =  "dl"
+dl = "dl"
 
 dt :: Selector
-dt =  "dt"
+dt = "dt"
 
 dd :: Selector
-dd =  "dd"
+dd = "dd"
 
 img :: Selector
-img =  "img"
+img = "img"
 
 canvas :: Selector
-canvas =  "canvas"
+canvas = "canvas"
 
 iframe :: Selector
-iframe =  "iframe"
+iframe = "iframe"
   
 form :: Selector
-form =  "form"
+form = "form"
 
 input :: Selector
-input =  "input"
+input = "input"
 
 textarea :: Selector
 textarea = "textarea"
