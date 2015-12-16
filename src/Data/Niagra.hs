@@ -1,6 +1,7 @@
 module Data.Niagra
 (
   -- * Modules
+  module Data.Niagra.Monad
   module Data.Niagra.Block,
   module Data.Niagra.Selector,
   module Data.Niagra.Selector.Tags,
