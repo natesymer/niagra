@@ -50,10 +50,12 @@ import Data.Text.Lazy.Builder (Builder,toLazyText)
 import Data.Text.Lazy (Text)
 
 {-
+
 TODO (in no particular order)
 
 * wrappers around 'declaration'
-* more operators
+* type selector parts better
+
 -}
 
 -- |Start a CSS declaration in monad @m@.
