@@ -26,9 +26,8 @@ module Data.Niagra
   (?),
   declaration,
   (.=),
-  media,
-  fontFace,
   -- * Modules
+  module Data.Niagra.At,
   module Data.Niagra.Monad,
   module Data.Niagra.Block,
   module Data.Niagra.Selector,
@@ -36,6 +35,7 @@ module Data.Niagra
 )
 where
 
+import Data.Niagra.At
 import Data.Niagra.Monad
 import Data.Niagra.Block
 import Data.Niagra.Selector
@@ -49,8 +49,6 @@ import Data.Text.Lazy (Text)
 
 {-
 TODO (in no particular order)
-
-* NiagraT return tuple: (CSS, NiagraT value)
 
 * wrappers around 'declaration'
 * more operators
@@ -98,17 +96,3 @@ declaration p v = writeDeclarations [Declaration p v]
 infix 2 .=
 (.=) :: (Monad m) => Text -> Text -> NiagraT (NiagraT m) ()
 (.=) = declaration
-
--- |A @media query.
-media :: (Monad m) => Text
-                   -> NiagraT (NiagraT m) () -- ^ content of the @media query
-                   -> NiagraT m ()
-media str act = cssBuilder act >>= writeBlocks . f
-  where f b = [BuilderBlock sel b]
-        sel = Raw $ mappend "@media " str
-        
--- |A @font-face
-fontFace :: (Monad m) => NiagraT (NiagraT m) () -- ^ content of the @font-face
-                      -> NiagraT m ()
-fontFace act = niagraDeclarations act >>= writeBlocks . f
-  where f b = [DeclarationBlock "@font-face" b]

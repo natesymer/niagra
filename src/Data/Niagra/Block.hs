@@ -17,12 +17,15 @@ module Data.Niagra.Block
   Block(..),
   Declaration(..),
   -- * Builder
-  buildBlock
+  buildBlock,
+  -- * DSL
+  
 )
 where
 
-import Data.Monoid
 import Data.Niagra.Selector
+
+import Data.Monoid
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy.Builder
 
@@ -39,6 +42,7 @@ buildBlock :: Block -- ^ block to render
 buildBlock (BuilderBlock sel b) = mconcat [buildSelector sel, "{", b, "}"]
 buildBlock (DeclarationBlock sel d) = buildBlock $ BuilderBlock sel $ buildDecls mempty d
   where
+    pair p v = fromLazyText p <> ":" <> fromLazyText v
     buildDecls accum [] = accum
-    buildDecls accum [Declaration p v] = mconcat [accum, fromLazyText p, singleton ':', fromLazyText v]
-    buildDecls accum ((Declaration p v):xs) = buildDecls (mconcat [accum, fromLazyText p, ":", fromLazyText v, ";"]) xs
+    buildDecls accum [Declaration p v] = accum <> pair p v
+    buildDecls accum (x:xs) = buildDecls (buildDecls accum [x] <> ";") xs
