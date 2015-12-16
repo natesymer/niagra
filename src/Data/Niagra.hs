@@ -1,11 +1,19 @@
+{-|
+Module      : Data.Niagra
+Description : Root module of Niagra
+Copyright   : (c) Nathaniel Symer, 2015
+License     : MIT
+Maintainer  : nate@symer.io
+Stability   : experimental
+Portability : POSIX
+
+Provides a basic interface for defining CSS
+and rendering those blocks into strings.
+-}
+
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra
 (
-  -- * Modules
-  module Data.Niagra.Monad,
-  module Data.Niagra.Block,
-  module Data.Niagra.Selector,
-  module Data.Niagra.Selector.Tags,
   -- * DSL
   css,
   css',
@@ -15,7 +23,12 @@ module Data.Niagra
   (?),
   declaration,
   (.=),
-  media
+  media,
+  -- * Modules
+  module Data.Niagra.Monad,
+  module Data.Niagra.Block,
+  module Data.Niagra.Selector,
+  module Data.Niagra.Selector.Tags
 )
 where
 
@@ -39,23 +52,25 @@ TODO (in no particular order)
 -}
 
 -- |Start a CSS declaration in monad @m@.
-css :: (Monad m) => NiagraT m () -> m Text
+css :: (Monad m) => NiagraT m ()
+                 -> m Text
 css = fmap toLazyText . cssBuilder
 
--- |Start a CSS declaration in the 'Identity' monad. Returns
--- resulting CSS outside of the 'Identity' monad.
-css' :: NiagraT Identity () -> Text
+-- |Non-monadic vesion of 'css'.
+css' :: NiagraT Identity ()
+     -> Text
 css' = runIdentity . css
 
--- |Start a CSS declaration in monad @m@ that returns a 'Builder'
-cssBuilder :: (Monad m) => NiagraT m () -> m Builder
+-- |Start a CSS declaration in monad @m@ that returns a 'Builder'.
+cssBuilder :: (Monad m) => NiagraT m ()
+                        -> m Builder
 cssBuilder = fmap (mconcat . map buildBlock . rights) . execNiagraT
 
--- cssBuilder' :: WriterT [Either Declaration Block] Identity () -> Builder
+-- |Non-monadic version of 'cssBuilder'.
 cssBuilder' :: NiagraT Identity () -> Builder
 cssBuilder' = runIdentity . cssBuilder
 
--- |General function for defining a CSS block
+-- |General function for defining a CSS block.
 block :: (Monad m) => Selector -- ^ block's selector that
                    -> NiagraT (NiagraT m) () -- ^ the block
                    -> NiagraT m ()
