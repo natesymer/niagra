@@ -1,30 +1,27 @@
 module Data.Niagra.Block
 (
   Block(..),
-  Declaration(..)
+  Declaration(..),
+  buildBlock
 )
 where
 
-import Data.Niagra.Buildable
-
 import Data.Monoid
 import Data.Niagra.Selector
-import Data.ByteString.Builder
-import qualified Data.ByteString.Lazy.Char8 as BL
-
-data Block = Block {
-  blockBuildable :: Selector,
-  blockDeclarationBlock :: Either Builder [Declaration] -- Allow greater flexibility
-}
-
-instance Buildable Block where
-  build (Block b decls) = build b <> char8 '{' <> either id buildDecls decls <> char8 '}'
-    where
-      buildDecls [] = mempty
-      buildDecls [Declaration p v] = string8 p <> char8 ':' <> string8 v
-      buildDecls ((Declaration p v):xs) = string8 p <> char8 ':' <> string8 v <> char8 ';' <> buildDecls xs
+import Data.Text.Lazy.Builder
 
 data Declaration = Declaration {
   declarationProperty :: String,
   declarationValue :: String
 } deriving (Eq, Show)
+
+data Block = DeclarationBlock Selector [Declaration]
+           | BuilderBlock Selector Builder
+
+buildBlock :: Block -> Builder
+buildBlock (BuilderBlock sel b) = mconcat [buildSelector sel, singleton '{', b, singleton '}']
+buildBlock (DeclarationBlock sel d) = buildBlock $ BuilderBlock sel $ buildDecls mempty d
+  where
+    buildDecls accum [] = accum
+    buildDecls accum [Declaration p v] = mconcat [accum, fromString p, singleton ':', fromString v]
+    buildDecls accum ((Declaration p v):xs) = buildDecls (mconcat [accum, fromString p, singleton ':', fromString v, singleton ';']) xs

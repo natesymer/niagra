@@ -3,6 +3,8 @@ module Data.Niagra.Selector
 (
   -- * Types
   Selector(..),
+  -- * Builder
+  buildSelector,
   -- * Operators
   (<||>),
   (>|),
@@ -27,16 +29,13 @@ module Data.Niagra.Selector
 )
 where
 
-import Data.Niagra.Buildable
-  
-import Data.String
+import qualified Data.String as S
 
 import Data.Monoid
 import Data.List (intersperse)
 import Prelude hiding (any)
 
-import Data.ByteString.Builder
-import qualified Data.ByteString.Lazy.Char8 as BL
+import Data.Text.Lazy.Builder
 
 data Selector = Child Selector Selector
               | Precedence Selector Selector -- Example: a ~ b
@@ -59,39 +58,39 @@ data Selector = Child Selector Selector
               | Null
   deriving (Eq,Show)
 
-instance IsString Selector where
+instance S.IsString Selector where
   fromString = Raw
   
-instance Buildable Selector where
-  build = f
-    where
-      between a e b = char8 a <> b <> char8 e
-      parens = between '(' ')'
-      bracketed = between '[' ']'
-      curlyb = between '{' '}'
-      quoted = between '"' '"' . string8
-      attr e a v = bracketed $ string8 a <> char8 e <> char8 '=' <> quoted v
-      f Null = string8 ""
-      f (Raw v) = string8 v
-      f (Child a b) = f a <> char8 '>' <> f b
-      f (Descendant a b) = f a <> char8 ' ' <> f b
-      f (ImmediatePrecedence a b) = f a <> char8 '+' <> f b
-      f (Precedence a b) = f a <> char8 '~' <> f b
-      f (PseudoClass a n (Just b)) = f a <> char8 ':' <> string8 n <> parens (f b)
-      f (PseudoClass a n Nothing) = f a <> char8 ':' <> string8 n
-      f (PseudoType a n (Just b)) = f a <> string8 "::" <> string8 n <> parens (f b)
-      f (PseudoType a n Nothing) = f a <> string8 "::" <> string8 n
-      f (Class a cls) = f a <> char8 '.' <> string8 cls
-      f (Id a i) = f a <> char8 '#' <> string8 i
-      f (SelectorList xs) = mconcat $ map f (intersperse (Raw ",") xs)
-      f (AttrExistential s a) = f s <> (bracketed $ string8 a)
-      f (AttrEquality s a v) = f s <> bracketed (string8 a <> char8 '=' <> quoted v)
-      f (AttrWhitespaceListContains s a v) = f s <> attr '~' a v
-      f (AttrHyphenListContains s a v) = f s <> attr '|' a v
-      f (AttrBeginsWith s a v) = f s <> attr '^' a v
-      f (AttrEndsWith s a v) = f s <> attr '$' a v
-      f (AttrSubstring s a v) = f s <> attr '*' a v
-      f FontFace = "@font-face"
+buildSelector :: Selector -> Builder
+buildSelector = f
+  where
+    between a e b = singleton a <> b <> singleton e
+    parens = between '(' ')'
+    bracketed = between '[' ']'
+    curlyb = between '{' '}'
+    quoted = between '"' '"' . fromString
+    attr e a v = bracketed $ fromString a <> singleton e <> singleton '=' <> quoted v
+    f Null = mempty
+    f (Raw v) = fromString v
+    f (Child a b) = f a <> singleton '>' <> f b
+    f (Descendant a b) = f a <> singleton ' ' <> f b
+    f (ImmediatePrecedence a b) = f a <> singleton '+' <> f b
+    f (Precedence a b) = f a <> singleton '~' <> f b
+    f (PseudoClass a n (Just b)) = f a <> singleton ':' <> fromString n <> parens (f b)
+    f (PseudoClass a n Nothing) = f a <> singleton ':' <> fromString n
+    f (PseudoType a n (Just b)) = f a <> fromString "::" <> fromString n <> parens (f b)
+    f (PseudoType a n Nothing) = f a <> fromString "::" <> fromString n
+    f (Class a cls) = f a <> singleton '.' <> fromString cls
+    f (Id a i) = f a <> singleton '#' <> fromString i
+    f (SelectorList xs) = mconcat $ map f (intersperse (Raw ",") xs)
+    f (AttrExistential s a) = f s <> (bracketed $ fromString a)
+    f (AttrEquality s a v) = f s <> bracketed (fromString a <> singleton '=' <> quoted v)
+    f (AttrWhitespaceListContains s a v) = f s <> attr '~' a v
+    f (AttrHyphenListContains s a v) = f s <> attr '|' a v
+    f (AttrBeginsWith s a v) = f s <> attr '^' a v
+    f (AttrEndsWith s a v) = f s <> attr '$' a v
+    f (AttrSubstring s a v) = f s <> attr '*' a v
+    f FontFace = "@font-face"
   
 -- TODO: write @instance Alternative Selector where ...@
 -- use this alternative instance to OR Selectors for the following syntax:

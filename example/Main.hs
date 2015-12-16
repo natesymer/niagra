@@ -4,11 +4,11 @@ module Main (main) where
   
 import Data.Niagra
 import Data.Monoid
-import Data.ByteString.Builder (Builder,toLazyByteString)
-import qualified Data.ByteString.Lazy.Char8 as BL
+import qualified Data.Text.Lazy.IO as TL
+import Data.Text.Lazy.Builder
 
 main :: IO ()
-main = BL.putStrLn $ toLazyByteString example
+main = TL.putStrLn $ toLazyText example
 
 example :: Builder
 example = cssBuilder' $ do
