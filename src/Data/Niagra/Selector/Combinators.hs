@@ -43,6 +43,8 @@ module Data.Niagra.Selector.Combinators
 where
   
 import Data.Niagra.Selector
+import Data.String
+import Data.Text.Lazy (Text)
 import Prelude hiding (not)
 
 
@@ -120,23 +122,23 @@ not = pseudoClass "not" . Just
 -- |Selects elements that are the nth child of their parent.
 nthChild :: Integer -- ^ n
          -> Selector
-nthChild = pseudoClass "nth-child" . Just . Raw . show
+nthChild = pseudoClass "nth-child" . Just . Raw . fromString . show
 
 -- |Selects elements that are the nth child of their parent,
 -- counting from the last child.
 nthLastChild :: Integer -- ^ n
              -> Selector
-nthLastChild = pseudoClass "nth-last-child" . Just . Raw . show
+nthLastChild = pseudoClass "nth-last-child" . Just . Raw . fromString . show
 
 -- |Selects elements that are the nth element of their parent, counting from the last child.
 nthLastOfType :: Integer -- ^ n
               -> Selector
-nthLastOfType = pseudoClass "nth-last-of-type" . Just . Raw . show     
+nthLastOfType = pseudoClass "nth-last-of-type" . Just . Raw . fromString . show     
 
 -- |Selects elements that are the second of their parent.
 nthOfType :: Integer -- ^ n
           -> Selector
-nthOfType = pseudoClass "nth-of-type" . Just . Raw . show
+nthOfType = pseudoClass "nth-of-type" . Just . Raw . fromString . show
 
 -- |Selects elements that are the only element of their type
 -- in the children of their parents.
