@@ -98,6 +98,6 @@ declaration :: (Monad m) => Text -- ^ property
 declaration p v = writeDeclarations [Declaration p v]
 
 -- |Operator equivalent of 'declaration'.
-infix 0 .=
+infix 1 .=
 (.=) :: (Monad m) => Text -> Text -> NiagraT (NiagraT m) ()
 (.=) = declaration
