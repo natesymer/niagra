@@ -97,10 +97,10 @@ buildSelector = f
   where
     between a e b = singleton a <> b <> singleton e
     parens = between '(' ')'
-    bracketed = between '[' ']'
+    brackets = between '[' ']'
     curlyb = between '{' '}'
     quoted = between '"' '"' . fromLazyText
-    attr e a v = bracketed $ fromLazyText a <> singleton e <> "=" <> quoted v
+    attr e a v = brackets $ fromLazyText a <> e <> "=" <> quoted v
     f Null = mempty
     f (Raw v) = fromLazyText v
     f (Child a b) = f a <> ">" <> f b
@@ -113,25 +113,24 @@ buildSelector = f
     f (PseudoType a n Nothing) = f a <> "::" <> fromLazyText n
     f (Class a cls) = f a <> "." <> fromLazyText cls
     f (Id a i) = f a <> "#" <> fromLazyText i
-    f (SelectorList xs) = mconcat $ map f $ intersperse "," xs
-    f (AttrExistential s a) = f s <> bracketed (fromLazyText a)
-    f (AttrEquality s a v) = f s <> bracketed (fromLazyText a <> "=" <> quoted v)
-    f (AttrWhitespaceListContains s a v) = f s <> attr '~' a v
-    f (AttrHyphenListContains s a v) = f s <> attr '|' a v
-    f (AttrBeginsWith s a v) = f s <> attr '^' a v
-    f (AttrEndsWith s a v) = f s <> attr '$' a v
-    f (AttrSubstring s a v) = f s <> attr '*' a v
+    f (SelectorList xs) = mconcat $ intersperse "," $ map f xs
+    f (AttrExistential s a) = f s <> brackets (fromLazyText a)
+    f (AttrEquality s a v) = f s <> attr mempty a v
+    f (AttrWhitespaceListContains s a v) = f s <> attr "~" a v
+    f (AttrHyphenListContains s a v) = f s <> attr "|" a v
+    f (AttrBeginsWith s a v) = f s <> attr "^" a v
+    f (AttrEndsWith s a v) = f s <> attr "$" a v
+    f (AttrSubstring s a v) = f s <> attr "*" a v
     f FontFace = "@font-face"
   
--- TODO: write @instance Alternative Selector where ...@
--- use this alternative instance to OR Selectors for the following syntax:
--- a,h2,h4{..}
+-- TODO: Rewrite list concat functionality elsewhere
+--       and use monoid instance to implement (<||>)
   
 instance Monoid Selector where
   mempty = Null
   mappend Null x = x
   mappend x Null = x
-  mappend (SelectorList xs) x = SelectorList $ x:xs
+  mappend (SelectorList xs) x = SelectorList $ xs ++ [x]
   mappend x (SelectorList xs) = SelectorList $ x:xs
   mappend a b = SelectorList [a,b]
   mconcat xs = SelectorList xs
