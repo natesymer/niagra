@@ -6,10 +6,9 @@ module Data.Niagra.At.FontFace
 where
 
 import Data.Niagra.Monad
-import Data.Niagra.Block
+import Data.Niagra.DSL
   
 -- |A @font-face
-fontFace :: (Monad m) => NiagraT (NiagraT m) () -- ^ content of the @font-face
+fontFace :: (Monad m) => NiagraT m () -- ^ content of the @font-face
                       -> NiagraT m ()
-fontFace act = return ()-- niagraDeclarations act >>= writeBlocks . f
---   where f b = [DeclarationBlock "@font-face" b]
+fontFace = block "@font-face"
