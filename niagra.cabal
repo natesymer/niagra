@@ -1,5 +1,5 @@
 name:                niagra
-version:             0.0.3
+version:             0.0.4
 synopsis:            CSS EDSL for Haskell
 description:         CSS EDSL for Haskell
 license:             MIT
@@ -27,6 +27,7 @@ library
   default-language:  Haskell2010
   build-depends:     base >=4.8 && <4.9,
                      transformers,
+                     containers,
                      mtl,
                      text
   

@@ -18,13 +18,15 @@ Niagra produces "minified" CSS.
 module Data.Niagra
 (
   -- * DSL
+  -- ** Rendering Functions
   css,
   css',
   cssBuilder,
   cssBuilder',
+  -- ** CSS Declaration Functions
   block,
-  (?),
   declaration,
+  (?),
   (.=),
   -- * Modules
   module Data.Niagra.At,
@@ -43,8 +45,6 @@ import Data.Niagra.Selector
 import Data.Niagra.Selector.Tags
 import Data.Niagra.Selector.Combinators
 
-import Data.Either
-
 import Control.Monad.Identity
 import Data.Text.Lazy.Builder (Builder,toLazyText)
 import Data.Text.Lazy (Text)
@@ -55,6 +55,7 @@ TODO (in no particular order)
 
 * wrappers around 'declaration'
 * type selector parts better
+* fix nested selectors
 
 -}
 
@@ -70,34 +71,33 @@ css' = runIdentity . css
 -- |Start a CSS declaration in monad @m@ that returns a 'Builder'.
 cssBuilder :: (Monad m) => NiagraT m () -- ^ the action to render
                         -> m Builder -- ^ builder that builds CSS
-cssBuilder = fmap (mconcat . map buildBlock) . niagraBlocks
+cssBuilder = fmap (mconcat . map buildBlock) . execNiagraT Null
 
 -- |Non-monadic version of 'cssBuilder'.
 cssBuilder' :: NiagraT Identity () -> Builder 
 cssBuilder' = runIdentity . cssBuilder
 
--- |General function for defining a CSS block.
+-- |Defines a CSS block.
 block :: (Monad m) => Selector -- ^ block's selector that
-                   -> NiagraT (NiagraT m) () -- ^ the block
+                   -> NiagraT m () -- ^ action declaring the block
                    -> NiagraT m ()
-block s act = niagraState act >>= writeBlocks . uncurry f
-  where f decls blocks = (DeclarationBlock s decls):(map prependSel blocks)
-          where prependSel (DeclarationBlock s2 d2) = DeclarationBlock (s <||> s2) d2
-                prependSel (BuilderBlock s2 b2) = BuilderBlock (s <||> s2) b2 
-                
-
--- |Operator equivalent of 'block'.
-infix 0 ?
-(?) :: (Monad m) => Selector -> NiagraT (NiagraT m) () -> NiagraT m ()
-(?) = block
+block sel declarator = do
+  withNewScope sel $ do
+    declarator
+    getCurrentBlock >>= addBlock
 
 -- |Make a declaration.
 declaration :: (Monad m) => Text -- ^ property
                          -> Text -- ^ value
-                         -> NiagraT (NiagraT m) ()
-declaration p v = writeDeclarations [Declaration p v]
+                         -> NiagraT m ()
+declaration p v = addDeclaration $ Declaration p v
+
+-- |Operator equivalent of 'block'.
+infix 0 ?
+(?) :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
+(?) = block
 
 -- |Operator equivalent of 'declaration'.
 infix 1 .=
-(.=) :: (Monad m) => Text -> Text -> NiagraT (NiagraT m) ()
+(.=) :: (Monad m) => Text -> Text -> NiagraT m ()
 (.=) = declaration

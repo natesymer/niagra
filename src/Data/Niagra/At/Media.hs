@@ -15,6 +15,6 @@ import Data.Text.Lazy (Text)
 media :: (Monad m) => Text
                    -> NiagraT (NiagraT m) () -- ^ content of the @media query
                    -> NiagraT m ()
-media str act = niagraBlocks act >>= writeBlocks . f
-  where f b = [BuilderBlock sel $ mconcat $ map buildBlock b]
-        sel = Raw $ mappend "@media " str
+media str act = return ()-- execNiagraT act >>= writeBlocks . f
+--   where f b = [BuilderBlock sel $ mconcat $ map buildBlock b]
+--         sel = Raw $ mappend "@media " str

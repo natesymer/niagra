@@ -8,17 +8,18 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.IO as TL
 
 main :: IO ()
-main = example >>= TL.putStrLn
+main = css example >>= TL.putStrLn
 
-example :: IO Text
-example = css $ do
-  input ! "textfield" ? do
-    "type" |=| "text" <> "type" |=| "password" ? do
-      "border" .= "none"
-
+example :: NiagraT IO ()
+example = do
   a # "title" ? do
-    "background-color" .= "red"
-    "color"            .= "green"
+    cls "taglink" ? do
+      cls "selected-tag" ? do
+        "background-color" .= "white"
+      hover ? do
+        "color" .= "#888"
+      "display" .= "inline-block"
+      "float"   .= "left"
 
   a .>. h2 ! "myclass" <> a # "title" ? do
     "background-color" .= "red"

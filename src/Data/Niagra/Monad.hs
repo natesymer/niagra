@@ -7,51 +7,71 @@ Maintainer  : nate@symer.io
 Stability   : experimental
 Portability : POSIX
 
-'NiagraT' monad transformer; based on 'WriterT'. Stores a state
-with type @['Either' 'Declaration' 'Block']@.
+'NiagraT' is a monad transformer based on 'RWST'. It stores no
+readonly state, a writeonly state with type @['Block']@, and a
+and a readwrite state with type 'Selector'.
 -}
 
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, TupleSections #-}
 module Data.Niagra.Monad
 (
   NiagraT(..),
-  writeBlocks,
-  writeDeclarations,
-  niagraBlocks,
-  niagraDeclarations,
-  niagraState
+  execNiagraT,
+  withNewScope,
+  getCurrentBlock,
+  addBlock,
+  addDeclaration
 )
 where
   
 import Data.Niagra.Block
-  
-import Data.Either
-import Control.Monad.Trans.Writer
+import Data.Niagra.Selector
+
+import Data.Sequence (Seq(..),viewl,ViewL(..),(<|),(|>))
+import qualified Data.Sequence as S (singleton,empty)
+import qualified Data.Foldable as F (toList)
+
+import Control.Monad.RWS.Lazy
 import Control.Monad.IO.Class
 
 -- |NiagraT monad transformer.
-newtype NiagraT m a = NiagraT (WriterT [Either Declaration Block] m a)
-  deriving (Functor, Applicative, Monad, MonadIO)
+newtype NiagraT m a = NiagraT (RWST () [Block] (Seq (Selector,(Seq Declaration))) m a)
+  deriving (Functor,
+            Applicative,
+            Monad,
+            MonadIO,
+            MonadState (Seq (Selector,(Seq Declaration))),
+            MonadWriter [Block])
+
+-- |Evaluate a NiagraT monadic action.
+execNiagraT :: (Monad m) => Selector -> NiagraT m () -> m [Block]
+execNiagraT sel (NiagraT rws) = do
+  ~(_,_,w) <- runRWST rws () $ S.singleton (sel,S.empty)
+  return $ filter (not . isEmpty) w
   
-execNiagraT :: (Monad m) => NiagraT m a -> m [Either Declaration Block]
-execNiagraT (NiagraT w) = filter (either (const True) (not . isEmpty)) <$> execWriterT w
+-- |Run an @act@ in a fresh 'NiagraT' state.
+withNewScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
+withNewScope sel act = do
+  state $ ((),) . push sel
+  act
+  (_ :< xs) <- viewl <$> get
+  put xs
+  where
+    push s st = (o <||> s,S.empty) <| st where ((o,_) :< _) = viewl st
+  
+-- |Get a 'Block' from the current 'NiagraT' state.
+getCurrentBlock :: (Monad m) => NiagraT m Block
+getCurrentBlock = do
+  ((sel, decls) :< _) <- viewl <$> get
+  return $ DeclarationBlock sel $ F.toList decls
 
--- |Append 'Block's to the 'NiagraT' state.
-writeBlocks :: (Monad m) => [Block] -> NiagraT m ()
-writeBlocks = NiagraT . tell . map Right
+-- |Add a 'Block' to the 'NiagraT' writer state.
+addBlock :: (Monad m) => Block -> NiagraT m ()
+addBlock blk = tell [blk]
 
--- |Append 'Declaration's to the 'NiagraT' state.
-writeDeclarations :: (Monad m) => [Declaration] -> NiagraT m ()
-writeDeclarations = NiagraT . tell . map Left
-
--- |Retrieve 'Block's from a 'NiagraT' action.
-niagraBlocks :: (Monad m) => NiagraT m () -> m [Block]
-niagraBlocks = fmap rights . execNiagraT
-
--- |Retrieve 'Declaration's from a 'NiagraT' action.
-niagraDeclarations :: (Monad m) => NiagraT m () -> m [Declaration]
-niagraDeclarations = fmap lefts . execNiagraT
-
--- |Retrieve both 'Declaration's and 'Block's from a 'NiagraT' action.
-niagraState :: (Monad m) => NiagraT m () -> m ([Declaration],[Block])
-niagraState = fmap partitionEithers . execNiagraT
+-- |Add a declaration to the 'NiagraT' state.
+addDeclaration :: (Monad m) => Declaration -> NiagraT m ()
+addDeclaration decl = get >>= put . f decl
+  where
+    f d st = (s,decls |> d) <| xs
+      where ((s,decls) :< xs) = viewl st
