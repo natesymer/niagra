@@ -24,7 +24,9 @@ module Data.Niagra
   module Data.Niagra.Block,
   module Data.Niagra.Selector,
   module Data.Niagra.Selector.Tags,
-  module Data.Niagra.Selector.Combinators
+  module Data.Niagra.Selector.Combinators,
+  module Data.Niagra.Properties,
+  module Data.Niagra.Value
 )
 where
 
@@ -35,6 +37,8 @@ import Data.Niagra.Block
 import Data.Niagra.Selector
 import Data.Niagra.Selector.Tags
 import Data.Niagra.Selector.Combinators
+import Data.Niagra.Properties
+import Data.Niagra.Value
 
 {-
 TODO (in no particular order)

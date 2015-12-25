@@ -64,7 +64,7 @@ block sel declarator = do
 
 -- |Make a declaration.
 declaration :: (Monad m) => Text -- ^ property
-                         -> Text -- ^ value
+                         -> Builder -- ^ value
                          -> NiagraT m ()
 declaration p v = addDeclaration $ Declaration p v
 
@@ -75,5 +75,5 @@ infix 0 ?
 
 -- |Operator equivalent of 'declaration'.
 infix 1 .=
-(.=) :: (Monad m) => Text -> Text -> NiagraT m ()
+(.=) :: (Monad m) => Text -> Builder -> NiagraT m ()
 (.=) = declaration

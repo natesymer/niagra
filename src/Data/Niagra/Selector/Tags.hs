@@ -61,7 +61,6 @@ module Data.Niagra.Selector.Tags
   blockquote,
   cite,
   code,
-  em,
   i,
   pre,
   q,
@@ -220,9 +219,6 @@ cite = "cite"
 
 code :: Selector
 code = "code"
-
-em :: Selector
-em = "em"
 
 i :: Selector
 i = "i"
