@@ -43,9 +43,9 @@ newtype NiagraT m a = NiagraT (RWST () (Seq Block) (Seq (Selector,(Seq Declarati
             MonadState (Seq (Selector,(Seq Declaration))))
 
 -- |Evaluate a NiagraT monadic action.
-execNiagraT :: (Monad m) => Selector -> NiagraT m () -> m [Block]
+execNiagraT :: (Monad m) => Selector -> NiagraT m () -> m (Seq Block)
 execNiagraT sel (NiagraT rws) = f <$> runRWST rws () (S.singleton (sel,S.empty))
-  where f (_,_,w) = F.toList $ S.filter (not . isEmpty) w
+  where f (_,_,w) = S.filter (not . isEmpty) w
   
 -- |Run an @act@ in a fresh 'NiagraT' state.
 withNewScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()

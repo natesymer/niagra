@@ -35,7 +35,7 @@ import Control.Monad.Identity
 import Data.Text.Lazy.Builder (Builder,toLazyText)
 import Data.Text.Lazy (Text)
 import Data.Monoid
-import Data.List
+import Data.Foldable
 
 -- |Start a CSS declaration in monad @m@.
 css :: (Monad m) => NiagraT m () -- ^ the action to render
