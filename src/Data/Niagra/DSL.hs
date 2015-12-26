@@ -34,6 +34,8 @@ import Data.Niagra.Block
 import Control.Monad.Identity
 import Data.Text.Lazy.Builder (Builder,toLazyText)
 import Data.Text.Lazy (Text)
+import Data.Monoid
+import Data.List
 
 -- |Start a CSS declaration in monad @m@.
 css :: (Monad m) => NiagraT m () -- ^ the action to render
@@ -47,7 +49,8 @@ css' = runIdentity . css
 -- |Start a CSS declaration in monad @m@ that returns a 'Builder'.
 cssBuilder :: (Monad m) => NiagraT m () -- ^ the action to render
                         -> m Builder -- ^ builder that builds CSS
-cssBuilder = fmap (mconcat . map buildBlock) . execNiagraT Null
+cssBuilder = fmap reduce . execNiagraT Null
+  where reduce = foldl' (\a b -> a <> (buildBlock b)) mempty
 
 -- |Non-monadic version of 'cssBuilder'.
 cssBuilder' :: NiagraT Identity () -> Builder 

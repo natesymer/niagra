@@ -45,7 +45,7 @@ newtype NiagraT m a = NiagraT (RWST () (Seq Block) (Seq (Selector,(Seq Declarati
 -- |Evaluate a NiagraT monadic action.
 execNiagraT :: (Monad m) => Selector -> NiagraT m () -> m [Block]
 execNiagraT sel (NiagraT rws) = f <$> runRWST rws () (S.singleton (sel,S.empty))
-  where f ~(_,_,w) = F.toList $ S.filter (not . isEmpty) w
+  where f (_,_,w) = F.toList $ S.filter (not . isEmpty) w
   
 -- |Run an @act@ in a fresh 'NiagraT' state.
 withNewScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
@@ -55,13 +55,13 @@ withNewScope sel act = do
   (_ :< xs) <- viewl <$> get
   put xs
   where
-    push s st = let (~(o,_) :< _) = viewl st
+    push s st = let ((o,_) :< _) = viewl st
                 in (o <||> s,S.empty) <| st
                 
 -- |Get a 'Block' from the current 'NiagraT' state.
 getCurrentBlock :: (Monad m) => NiagraT m Block
 getCurrentBlock = do
-  (~(sel, decls) :< _) <- viewl <$> get
+  ((sel, decls) :< _) <- viewl <$> get
   return $ DeclarationBlock sel $ F.toList decls
 
 -- |Add a 'Block' to the 'NiagraT' writer state.
@@ -71,5 +71,5 @@ addBlock = tell . S.singleton
 -- |Add a declaration to the 'NiagraT' state.
 addDeclaration :: (Monad m) => Declaration -> NiagraT m ()
 addDeclaration decl = get >>= put . f decl
-  where f d st = let (~(s,decls) :< xs) = viewl st
+  where f d st = let ((s,decls) :< xs) = viewl st
                  in (s,decls |> d) <| xs

@@ -229,19 +229,19 @@ infixl 7 <||>
 (<||>) s Null = s
 (<||>) Null s = s
 -- "trait" cases (aspect modifies selector)
-(<||>) s (AttrExistential _ a) = AttrExistential s a
-(<||>) s (AttrEquality _ a b) = AttrEquality s a b
-(<||>) s (AttrWhitespaceListContains _ a l) = AttrWhitespaceListContains s a l
-(<||>) s (AttrHyphenListContains _ a l) = AttrHyphenListContains s a l
-(<||>) s (AttrBeginsWith _ a str) = AttrBeginsWith s a str
-(<||>) s (AttrEndsWith _ a str) = AttrEndsWith s a str
-(<||>) s (AttrSubstring _ a str) = AttrSubstring s a str
-(<||>) s (PseudoClass _ c m) = PseudoClass s c m
-(<||>) s (PseudoType _ c m) = PseudoType s c m
+(<||>) s (AttrExistential i a) = AttrExistential (s <||> i) a
+(<||>) s (AttrEquality i a b) = AttrEquality (s <||> i) a b
+(<||>) s (AttrWhitespaceListContains i a l) = AttrWhitespaceListContains (s <||> i) a l
+(<||>) s (AttrHyphenListContains i a l) = AttrHyphenListContains (s <||> i) a l
+(<||>) s (AttrBeginsWith i a str) = AttrBeginsWith (s <||> i) a str
+(<||>) s (AttrEndsWith i a str) = AttrEndsWith (s <||> i) a str
+(<||>) s (AttrSubstring i a str) = AttrSubstring (s <||> i) a str
+(<||>) s (PseudoClass i c m) = PseudoClass (s <||> i) c m
+(<||>) s (PseudoType i c m) = PseudoType (s <||> i) c m
 (<||>) (SelectorList xs) a = SelectorList $ map (\s -> s <||> a) xs
 (<||>) s (SelectorList xs) = SelectorList $ map (\a -> s <||> a) xs
-(<||>) s (Id _ i) = Id s i
-(<||>) s (Class _ c) = Class s c
+(<||>) s (Id i eyeD) = Id (s <||> i) eyeD
+(<||>) s (Class i c) = Class (s <||> i) c
 -- lineage case
 (<||>) s s' = Descendant s s'
 

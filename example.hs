@@ -29,7 +29,7 @@ wordlist = do
       border        none
       color         (hex 0xF0F0F0)
       background    (hex 0x545454)
-    
+
   cls "wordlist-item" ? do
     font          (px 15) ["woodpecker","sans-serif"]
     display       "inline-block"
