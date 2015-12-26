@@ -61,7 +61,9 @@ data Measure where
   MeasureCalculated :: Operation -> Measure -> Measure -> Measure
  
 instance Value Measure where
+  build (Measure _ 0) = decimal 0 -- exclude units for 0
   build (Measure u s) = decimal s <> fromLazyText u
+  build (MeasureDec _ 0.0) = realFloat 0.0 -- exclude units for 0
   build (MeasureDec u s) = realFloat s <> fromLazyText u
   build MeasureAuto = "auto"
    
