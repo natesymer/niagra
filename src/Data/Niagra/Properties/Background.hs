@@ -7,7 +7,8 @@ module Data.Niagra.Properties.Background
   backgroundColor,
   backgroundImage,
   backgroundRepeat,
-  backgroundSize
+  backgroundSize,
+  boxShadow
 )
 where
   
@@ -31,3 +32,6 @@ backgroundRepeat = declaration "background-repeat"
 
 backgroundSize :: (Monad m) => Builder -> NiagraT m ()
 backgroundSize = declaration "background-size"
+
+boxShadow :: (Monad m, Value v) => v -> NiagraT m ()
+boxShadow = declaration "box-shadow" . build

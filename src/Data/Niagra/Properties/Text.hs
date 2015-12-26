@@ -2,7 +2,8 @@
 
 module Data.Niagra.Properties.Text
 (
-  lineHeight
+  lineHeight,
+  textAlign
 )
 where
   
@@ -10,10 +11,13 @@ import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
 
-import Data.Niagra.Properties.Units
+import Data.Text.Lazy.Builder (Builder)
   
-lineHeight :: (Monad m) => Measure -> NiagraT m ()
+lineHeight :: (Monad m) => Builder -> NiagraT m ()
 lineHeight = declaration "line-height" . build
+
+textAlign :: (Monad m) => Builder -> NiagraT m ()
+textAlign = declaration "text-align"
   
 {-
 
@@ -25,7 +29,6 @@ letter-spacing	Increases or decreases the space between characters in a text	1
 line-break	Specifies how/if to break lines	3
 overflow-wrap	Specifies whether or not the browser may break lines within words in order to prevent overflow (when a string is too long to fit its containing box)	3
 tab-size	Specifies the length of the tab-character	3
-text-align	Specifies the horizontal alignment of text	1
 text-align-last	Describes how the last line of a block or a line right before a forced line break is aligned when text-align is "justify"	3
 text-combine-upright	Specifies the combination of multiple characters into the space of a single character	3
 text-indent	Specifies the indentation of the first line in a text-block	1

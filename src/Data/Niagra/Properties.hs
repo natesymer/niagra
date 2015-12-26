@@ -27,7 +27,5 @@ import Data.Niagra.Properties.Units
 import Data.Monoid
 import Data.Text.Lazy.Builder (Builder)
 
-import Data.Niagra.Value
-
-url :: (Value a) => a -> Builder
-url v = "url(\"" <> build v <> "\")"
+url :: Builder -> Builder
+url v = "url(\"" <> v <> "\")"

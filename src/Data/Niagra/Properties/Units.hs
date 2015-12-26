@@ -3,10 +3,9 @@
 module Data.Niagra.Properties.Units
 (
   -- * Types
-  Measure(..),
   Operation(..),
   -- * Calculations
-  -- calc,
+  calc,
   -- * Units
   -- ** Absolute Units
   px,

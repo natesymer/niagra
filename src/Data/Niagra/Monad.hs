@@ -7,9 +7,9 @@ Maintainer  : nate@symer.io
 Stability   : experimental
 Portability : POSIX
 
-'NiagraT' is a monad transformer based on 'RWST'. It stores no
-readonly state, a writeonly state with type @['Block']@, and a
-and a readwrite state with type 'Selector'.
+'NiagraT' is a monad transformer based on 'RWST'. It stores a
+combination of total CSS rendering state (blocks) in the writer state
+& a state of the currently rendering block in the readwrite state.
 -}
 
 {-# LANGUAGE GeneralizedNewtypeDeriving, TupleSections #-}

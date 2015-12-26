@@ -16,9 +16,11 @@ wordlist = do
   cls "wordlist-view" ? do
     borderLeft ["solid", px 2, hex 0x80B9B4]
     "*" ? fontSize (px 20) -- Change this to change the size of the wordlist.
-    margin   (px 30)
-    maxWidth (px 700)
-    width    auto
+    fontFamily ["sans-serif"]
+    margin     (px 30)
+    maxWidth   (px 700)
+    width      auto
+    background (v "white")
     input ? do
       verticalAlign "middle"
       width         (px 80)
@@ -29,6 +31,7 @@ wordlist = do
       background    (hex 0x545454)
     
   cls "wordlist-item" ? do
+    font          (px 15) ["woodpecker","sans-serif"]
     display       "inline-block"
     background    (hex 0x80B9B4)
     color         (hex 0xF0F0F0)

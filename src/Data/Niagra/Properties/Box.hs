@@ -30,7 +30,8 @@ module Data.Niagra.Properties.Box
   zIndex,
   verticalAlign,
   display,
-  float
+  float,
+  position
 )
 where
 

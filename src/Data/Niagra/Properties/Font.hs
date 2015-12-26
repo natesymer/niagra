@@ -35,8 +35,9 @@ commaSeparate :: [Builder] -> Builder
 commaSeparate = f mempty
   where
     f a [] = a
-    f a [x] = a <> singleton ',' <> build x
-    f a (x:xs) = f (a <> singleton ',' <> build x) xs
+    f a (x:xs)
+      | a == mempty = f x xs
+      | otherwise = f (a <> singleton ',' <> x) xs
 
 {-
 TODO 
