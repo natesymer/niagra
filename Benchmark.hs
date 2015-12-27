@@ -8,8 +8,12 @@ import Data.Monoid
 import Prelude hiding (span)
 
 main :: IO ()
-main = defaultMain [bgroup "niagra" [bench "basic" $ whnf toText basic,
+main = defaultMain [bgroup "niagra" [bench "px" $ whnf toText unitPx,
+                                     bench "basic" $ whnf toText basic,
                                      bench "wordlist" $ whnf toText wordlist]]
+
+unitPx :: Builder
+unitPx = (px 30)
 
 basic :: Builder
 basic = cssBuilder' $ do

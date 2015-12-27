@@ -45,4 +45,20 @@ library
                      mtl,
                      text,
                      ghc-prim
-  
+
+executable example
+  default-language:  Haskell2010
+  main-is:           example.hs
+  ghc-options:       -Wall
+  build-depends:     base,
+                     niagra,
+                     text
+                     
+executable benchmark
+  default-language:  Haskell2010
+  main-is:           Benchmark.hs
+  ghc-options:       -Wall
+  build-depends:     base,
+                     niagra,
+                     text,
+                     criterion

@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, MagicHash #-}
+{-# LANGUAGE Rank2Types, MagicHash #-}
 module Data.Niagra.Builder
 (
   Builder(..),
@@ -68,9 +68,16 @@ appendVec t@(Text ta to tl) (MText a o l)
     return $ MText a o (l+tl)
 
 {- Public API -}
+  
+-- TODO:
+-- * BIG OPTIMIZATION: Chunked egyptian addition style appending.
+--                     Avoid copying when larger than N bytes
 
+-- |Wrapper around a function that applies changes
+-- to a mutable buffer in 'ST'.
+-- TODO: Go back to (Ary -> ST Ary) -> Ary -> ST Ary
 data Builder = Builder {
-  runBuilder :: forall s. (MText s -> ST s (MText s)) -> MText s -> ST s (MText s)
+  runBuilder :: forall s. (ST s (MText s) -> ST s (MText s)) -> ST s (MText s) -> ST s (MText s)
 }
 
 instance Monoid Builder where
@@ -82,27 +89,27 @@ instance STR.IsString Builder where
 
 empty :: Builder
 empty = Builder $ \f v -> f v
-    
--- biggest overhead comes from the binding operator    
+
+-- biggest overhead comes from the binding operator
 singleton :: Char -> Builder
-singleton c = Builder $ \f v -> snocVec c v >>= f
+singleton c = Builder $ \f v -> f $ v >>= snocVec c
 
 fromString :: String -> Builder
 fromString [] = empty
-fromString xs = Builder $ \f v -> foldlM (flip snocVec) v xs >>= f
+fromString xs = Builder $ \f v -> f $ v >>= appendStr xs
+  where appendStr xs v = foldlM (flip snocVec) v xs
 
 fromText :: Text -> Builder
-fromText t = Builder $ \f v -> appendVec t v >>= f 
+fromText t = Builder $ \f v -> f $ v >>= appendVec t
 
 appendBuilder :: Builder -> Builder -> Builder
 appendBuilder (Builder a) (Builder b) = Builder $ a . b
   
 toText :: Builder -> Text
 toText (Builder f) = runST $ do
-  (MText m o l) <- (newText 128) >>= f return 
+  (MText m o l) <- f id (newText 1024)
   a <- A.unsafeFreeze m
-  return $ text a o l
-  
+  return $ Text a o l
 
 -- INTEGERS
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes, GADTs #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Data.Niagra.Properties.Units
 (
@@ -51,19 +51,6 @@ import Data.Niagra.Builder
 import Data.Text (Text)
 import Data.Monoid
 import Prelude hiding (rem)
-
-data Measure where
-  Measure :: Text -> Integer -> Measure
-  MeasureDec :: Text -> Double -> Measure
-  MeasureAuto :: Measure
-  MeasureCalculated :: Operation -> Measure -> Measure -> Measure
- 
-instance Value Measure where
-  build (Measure _ 0) = decimal 0 -- exclude units for 0
-  build (Measure u s) = decimal s <> fromText u
-  build (MeasureDec _ 0.0) = realFloat 0.0 -- exclude units for 0
-  build (MeasureDec u s) = realFloat s <> fromText u
-  build MeasureAuto = "auto"
    
 data Operation = OpAdd | OpSub | OpDiv | OpMul
 
@@ -77,38 +64,46 @@ instance Value Operation where
 calc :: Operation -> Builder -> Builder -> Builder
 calc op a b = mconcat ["calc(", a, singleton ' ', build op, singleton ' ', b, singleton ')']
 
+wholeMeas :: Text -> Integer -> Builder
+wholeMeas _ 0 = decimal 0
+wholeMeas t v = decimal v <> fromText t
+
+floatMeas :: Text -> Double -> Builder
+floatMeas _ 0.0 = realFloat 0.0
+floatMeas t v = realFloat v <> fromText t
+
 {- ABSOLUTE UNITS -}
 
 px,cm,mm,inch,pt,pc,unitless :: Integer -> Builder
 px',cm',mm',inch',pt',pc',unitless' :: Double -> Builder
        
 -- |Measured in pixels.
-px  = build . Measure "px"
-px' = build . MeasureDec "px"
+px = wholeMeas "px"
+px' = floatMeas "px"
 
 -- |Measured in centimeters.
-cm  = build . Measure "cm"
-cm' = build . MeasureDec "cm"
+cm  = wholeMeas "cm"
+cm' = floatMeas "cm"
 
 -- |Measured in millimeters.
-mm  = build . Measure "mm"
-mm' = build . MeasureDec "mm"
+mm  = wholeMeas "mm"
+mm' = floatMeas "mm"
 
 -- |Measured in inches.
-inch  = build . Measure "in"
-inch' = build . MeasureDec "in"
+inch  = wholeMeas "in"
+inch' = floatMeas "in"
 
 -- |Measured in points.
-pt  = build . Measure "pt"
-pt' = build . MeasureDec "pt"
+pt  = wholeMeas "pt"
+pt' = floatMeas "pt"
 
 -- |Measured in picas.
-pc  = build . Measure "pc"
-pc' = build . MeasureDec "pc"
+pc  = wholeMeas "pc"
+pc' = floatMeas "pc"
 
 -- |Measured without units.
-unitless  = build . Measure ""
-unitless' = build . MeasureDec ""
+unitless  = decimal
+unitless' = realFloat
 
 {- RELATIVE UNITS -}
 
@@ -116,41 +111,41 @@ em,ex,ch,rem,vw,vh,vmin,vmax,perc :: Integer -> Builder
 em',ex',ch',rem',vw',vh',vmin',vmax',perc' :: Double -> Builder
 
 -- |Measured relative to element's @font-size@.
-em  = build . Measure "em"
-em' = build . MeasureDec "em"
+em  = wholeMeas "em"
+em' = floatMeas "em"
 
 -- |Measured relative to the x-height of the current font.
-ex  = build . Measure "ex"
-ex' = build . MeasureDec "ex"
+ex  = wholeMeas "ex"
+ex' = floatMeas "ex"
 
 -- |Measured relative to width of the "0".
-ch  = build . Measure "ch"
-ch' = build . MeasureDec "ch"
+ch  = wholeMeas "ch"
+ch' = floatMeas "ch"
 
 -- |Measured relative to @font-size@ of the root element.
-rem  = build . Measure "rem"
-rem' = build . MeasureDec "rem"
+rem  = wholeMeas "rem"
+rem' = floatMeas "rem"
 
 -- |Measured relative to 1% of the width of the viewport.
-vw  = build . Measure "vw"
-vw' = build . MeasureDec "vw"
+vw  = wholeMeas "vw"
+vw' = floatMeas "vw"
 
 -- |Measured relative to 1% of the height of the viewport.
-vh  = build . Measure "vh"
-vh' = build . MeasureDec "vh"
+vh  = wholeMeas "vh"
+vh' = floatMeas "vh"
 
 -- |Measured relative to 1% of viewport's smaller dimension.
-vmin  = build . Measure "vmin"
-vmin' = build . MeasureDec "vmin"
+vmin  = wholeMeas "vmin"
+vmin' = floatMeas "vmin"
 
 -- |Measured relative to 1% of viewport's larger dimension.
-vmax  = build . Measure "vmax"
-vmax' = build . MeasureDec "vmax"
+vmax  = wholeMeas "vmax"
+vmax' = floatMeas "vmax"
 
 -- |Measured by percent.
-perc  = build . Measure "%"
-perc' = build . MeasureDec "%"
+perc  = wholeMeas "%"
+perc' = floatMeas "%"
 
 -- |CSS @auto@.
 auto :: Builder
-auto = build $ MeasureAuto
+auto = fromText "auto"
