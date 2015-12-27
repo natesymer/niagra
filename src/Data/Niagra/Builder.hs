@@ -25,7 +25,7 @@ of bytes at most twice:
 
 -}
 
-{-# LANGUAGE Rank2Types, MagicHash, TupleSections #-}
+{-# LANGUAGE Rank2Types, MagicHash, BangPatterns, UnboxedTuples, TupleSections #-}
 module Data.Niagra.Builder
 (
   Builder(..),
@@ -42,6 +42,10 @@ where
 
 import Control.Monad.ST
 
+import GHC.Prim
+import GHC.Exts hiding (fromString,toList)
+import GHC.ST
+
 import Data.Char
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -55,7 +59,7 @@ import Data.Sequence (Seq(..), (|>))
 import qualified Data.Sequence as S
 
 import Data.Text.Internal (Text(..))
-import Data.Text.Array (MArray(..))
+import Data.Text.Array (MArray(..),Array(..))
 import qualified Data.Text.Array as A
 import qualified Data.Text.Internal.Unsafe.Char as UC (unsafeWrite)
 
@@ -66,66 +70,77 @@ bufferLength :: Int
 bufferLength = 128
 
 -- |Buffer used when evaluating builders
-data MText s = MText {
-  mtextArray :: !(MArray s),
-  mtextLength :: !Int
+data Buffer s = Buffer {
+  bufferArray :: !(MArray s),
+  bufferUsedLength :: !Int
 }
 
-newText :: forall s. ST s (MText s)
-newText = A.new (bufferLength * 2) >>= \mt -> return $ MText mt 0
+-- |Shrink's a buffer's internal 'MutableByteArray#' to its
+-- length, @l@.
+shrinkBuffer :: Buffer s -> ST s ()
+shrinkBuffer (Buffer (MArray b) (I# l)) = ST $ \s -> (# (shrinkMutableByteArray# b l s), () #)
 
-bufToText :: MText s -> ST s Text
-bufToText (MText buf len) = do
-  fr <- A.unsafeFreeze buf
+-- |Safer than A.unsafeFreeze, which just uses 'unsafeCoerce#'
+freezeMArray :: MArray s -> ST s Array
+freezeMArray (MArray b) = ST $ \s -> case unsafeFreezeByteArray# b s of
+  (# new_s,a #) -> (# new_s,Array a #)
+  
+-- |Like A.new, but doesn't check n for negativity
+unsafeNewBuffer :: ST s (Buffer s)
+unsafeNewBuffer = ST $ \s -> case newByteArray# aryLen s of
+  (# new_s, marr #) -> (# new_s, Buffer (MArray marr) 0 #)
+  where !(I# aryLen) = bufferLength * 2
+
+-- |Create a strict text out of a buffer.
+bufferToText :: Buffer s -> ST s Text
+bufferToText b@(Buffer buf len) = do
+  shrinkBuffer b
+  fr <- freezeMArray buf
   return $ Text fr 0 len
 
-snocVec :: Char -> (MText s, Seq Text) -> ST s (MText s, Seq Text)
-snocVec v (mt@(MText a l),xs)
+snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
+snocVec v (b@(Buffer a l),xs)
   | l < bufferLength = do
+    -- TODO rectify this returning 1 or two
     UC.unsafeWrite a l v -- writes a Char as a Word16
-    return (MText a (l+1),xs)
+    return (Buffer a (l+1),xs)
   | otherwise = do
-    newH <- newText
-    txt <- bufToText mt
+    newH <- unsafeNewBuffer
+    txt <- bufferToText b
     snocVec v (newH, xs |> txt)
 
 -- TODO: ensure correctness
-appendVec :: Text -> (MText s, Seq Text) -> ST s (MText s, Seq Text)
-appendVec t@(Text ta to tl) (mt@(MText a l),xs) 
+appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
+appendVec t@(Text ta to tl) (mt@(Buffer a l),xs)
   | tl > copyLength = do -- 'mt' can't accommodate tl bytes.
     performCopy copyLength -- copy 'copyableLength' bytes to 'mt'
-    newH <- newText -- create new mutable text buffer
-    let truncText = Text ta (to+copyLength) (tl-copyLength)
-    txt <- bufToText mt
-    appendVec truncText (newH, xs |> txt)
+    newH <- unsafeNewBuffer -- create new mutable text buffer
+    txt <- bufferToText mt
+    appendVec (Text ta (to+copyLength) (tl-copyLength)) (newH, xs |> txt)
   | otherwise = do
     performCopy copyLength -- copy 'copyableLength' bytes to 'mt'
-    return (MText a (l+copyLength), xs)
+    return (Buffer a (l+copyLength), xs)
   where
     performCopy len = A.copyI a l ta to (l + len)
     minLength = tl + l -- minimum length of buffer to hold mtext++text
     remaining = (bufferLength - l) -- bytes remaining in buffer
     copyLength = minTwo remaining tl -- bytes to copy
-    minTwo a b
-      | a < b = a
-      | otherwise = b
+    minTwo a b | a < b = a | otherwise = b
 
 {- Public API -}
-
--- TODO: freeze buffers once they're full
 
 -- |Wrapper around a function that applies changes
 -- to a sequence of mutable buffers in 'ST'.
 data Builder = Builder {
-  runBuilder :: forall s. ((MText s, Seq Text) -> ST s (MText s, Seq Text))
-             -> (MText s, Seq Text)
-             -> ST s (MText s, Seq Text)
+  runBuilder :: forall s. ((Buffer s, Seq Text) -> ST s (Buffer s, Seq Text))
+             -> (Buffer s, Seq Text)
+             -> ST s (Buffer s, Seq Text)
 }
 
 evalBuilder :: Builder -> ST s [Text]
 evalBuilder (Builder f) = do
-  (h,t) <- newText >>= f return . (,S.empty)
-  flushed <- bufToText h
+  (h,t) <- unsafeNewBuffer >>= f return . (,S.empty)
+  flushed <- bufferToText h
   return $ toList $ t |> flushed
 
 instance Monoid Builder where
