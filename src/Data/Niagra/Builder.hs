@@ -71,8 +71,8 @@ bufferLength = 128
 
 -- |Buffer used when evaluating builders
 data Buffer s = Buffer {
-  bufferArray :: !(MArray s),
-  bufferUsedLength :: !Int
+  bufferArray :: !(MArray s), -- ^ contains 'Word16's
+  bufferUsedLength :: !Int -- ^ number of 'Word16's in the buffer
 }
 
 -- |Shrink's a buffer's internal 'MutableByteArray#' to its
@@ -101,27 +101,26 @@ bufferToText b@(Buffer buf len) = do
 snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
 snocVec v (b@(Buffer a l),xs)
   | l < bufferLength = do
-    -- TODO rectify this returning 1 or two
-    UC.unsafeWrite a l v -- writes a Char as a Word16
-    return (Buffer a (l+1),xs)
+    n <- UC.unsafeWrite a l v -- writes a Char as a 'Word16's
+    return (Buffer a (l+n),xs)
   | otherwise = do
     newH <- unsafeNewBuffer
     txt <- bufferToText b
     snocVec v (newH, xs |> txt)
 
--- TODO: ensure correctness
+-- | Append a 'Text' to our buffered text sequence
 appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
 appendVec t@(Text ta to tl) (mt@(Buffer a l),xs)
-  | tl > copyLength = do -- 'mt' can't accommodate tl bytes.
-    performCopy copyLength -- copy 'copyableLength' bytes to 'mt'
-    newH <- unsafeNewBuffer -- create new mutable text buffer
+  | tl > copyLength = do -- 'mt' can't accommodate tl bytes
+    performCopy copyLength
+    newH <- unsafeNewBuffer
     txt <- bufferToText mt
     appendVec (Text ta (to+copyLength) (tl-copyLength)) (newH, xs |> txt)
   | otherwise = do
-    performCopy copyLength -- copy 'copyableLength' bytes to 'mt'
+    performCopy copyLength
     return (Buffer a (l+copyLength), xs)
   where
-    performCopy len = A.copyI a l ta to (l + len)
+    performCopy len = A.copyI a l ta to (l + len) -- copy 'len' bytes into 'mt'
     minLength = tl + l -- minimum length of buffer to hold mtext++text
     remaining = (bufferLength - l) -- bytes remaining in buffer
     copyLength = minTwo remaining tl -- bytes to copy
