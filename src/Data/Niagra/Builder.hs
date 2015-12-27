@@ -11,7 +11,10 @@ module Data.Niagra.Builder
   realFloat
 )
 where
+  
+import Control.Monad.IO.Class
 
+import qualified Data.Text.IO as T
 import Data.Text (Text)
 import Data.Monoid
 import qualified Data.String as STR
@@ -26,12 +29,13 @@ import GHC.Exts (Int(..))
 import Data.Foldable
 
 import Control.Monad.ST
+import Control.Monad.ST.Unsafe (unsafeIOToST)
 
 {- Internal Mutable text data structure -}
 
 -- mutable version of Text
 data MText s = MText {
-  mtextArray :: MArray s,
+  mtextArray :: !(MArray s),
   mtextOffset :: !Int,
   mtextLength :: !Int
 }
@@ -58,6 +62,7 @@ snocVec v (MText a o l)
 appendVec :: Text -> MText s -> ST s (MText s)
 appendVec t@(Text ia io il) (MText a o l)
   | ((il + l + o) * 2) > (lengthMArray a) = do
+    -- unsafeIOToST $ T.putStrLn t
     n <- A.new $ ((lengthMArray a) * 2) + (il * 2)
     A.copyM n 0 a (o*2) (l*2)
     appendVec t $ MText n 0 $ l + il
@@ -68,13 +73,12 @@ appendVec t@(Text ia io il) (MText a o l)
 {- Public API -}
 
 data Builder = Builder {
-  runBuilder :: forall s. (ST s (MText s) -> ST s (MText s)) -> ST s (MText s) -> ST s (MText s)
+  runBuilder :: forall s. ((MText s) -> ST s (MText s)) -> (MText s) -> ST s (MText s)
 }
 
 instance Monoid Builder where
   mempty  = empty
   mappend = appendBuilder
-  mconcat = foldl' mappend mempty
   
 instance STR.IsString Builder where
   fromString = fromString
@@ -82,22 +86,23 @@ instance STR.IsString Builder where
 empty :: Builder
 empty = Builder $ \f v -> f v
     
+-- biggest overhead comes from the binding operator    
 singleton :: Char -> Builder
-singleton c = Builder $ \f v -> v >>= f . snocVec c
+singleton c = Builder $ \f v -> snocVec c v >>= f
 
 fromString :: String -> Builder
 fromString [] = empty
-fromString xs = Builder $ \f v -> v >>= \v' -> f $ foldlM (flip snocVec) v' xs
+fromString xs = Builder $ \f v -> foldrM (flip snocVec) v xs >>= f
 
 fromText :: Text -> Builder
-fromText t = Builder $ \f v -> v >>= f . appendVec t
+fromText t = Builder $ \f v -> appendVec t v >>= f 
 
 appendBuilder :: Builder -> Builder -> Builder
 appendBuilder (Builder a) (Builder b) = Builder $ a . b
   
 toText :: Builder -> Text
 toText (Builder f) = runST $ do
-  (MText m o l) <- f id (newText 128)
+  (MText m o l) <- (newText 128) >>= f return 
   a <- A.unsafeFreeze m
   return $ text a o l
   
