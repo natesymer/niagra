@@ -1,4 +1,31 @@
-{-# LANGUAGE Rank2Types, MagicHash #-}
+{-|
+Module      : Data.Niagra.Builder
+Description : Lazy/Eager Text builder
+Copyright   : (c) Nathaniel Symer, 2015
+License     : MIT
+Maintainer  : nate@symer.io
+Stability   : experimental
+Portability : POSIX
+
+Lazy/Eager 'Text' builder built on top of
+text technologies using better data structures
+than the original 'Data.Text.Lazy.Builder'.
+
+It uses the 'Seq' data structure to hold chunks
+rather than a List, because 'Seq's have O(1)
+access to either end of the structure. This is
+crucial for accumulating chunks in as little time
+possible.
+
+Furthermore, this builder only copies a given sequence
+of bytes at most twice:
+
+1. from 'Text','String', or 'Char' to buffer.
+2. when creating an eager 'Text'
+
+-}
+
+{-# LANGUAGE Rank2Types, MagicHash, TupleSections #-}
 module Data.Niagra.Builder
 (
   Builder(..),
@@ -6,79 +33,100 @@ module Data.Niagra.Builder
   fromString,
   fromText,
   toText,
+  toLazyText,
   decimal,
   hexadecimal,
   realFloat
 )
 where
 
-import qualified Data.Text as T
-import Data.Text (Text)
-import Data.Monoid
-import qualified Data.String as STR
-import Data.Char
-
-import qualified Data.Text.Internal.Unsafe.Char as UC (unsafeWrite)
-import Data.Text.Array (MArray(..), Array(..))
-import qualified Data.Text.Array as A
-import Data.Text.Internal (Text(..),text)
-import GHC.Prim
-import GHC.Exts (Int(..))
-import Data.Foldable
-
 import Control.Monad.ST
+
+import Data.Char
+import Data.Text (Text)
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+
+import Data.Monoid
+import Data.Foldable
+import qualified Data.String as STR
+
+import Data.Sequence (Seq(..), (|>))
+import qualified Data.Sequence as S
+
+import Data.Text.Internal (Text(..))
+import Data.Text.Array (MArray(..))
+import qualified Data.Text.Array as A
+import qualified Data.Text.Internal.Unsafe.Char as UC (unsafeWrite)
 
 {- Internal Mutable text data structure -}
 
--- mutable version of Text
+-- | Buffer length in 'Word16's (ie 'bufferLength' 'Word16's per buffer)
+bufferLength :: Int
+bufferLength = 128
+
+-- |Buffer used when evaluating builders
 data MText s = MText {
   mtextArray :: !(MArray s),
-  mtextOffset :: !Int,
   mtextLength :: !Int
 }
 
-lengthMArray :: forall s. MArray s -> Int
-lengthMArray (MArray a) = I# (sizeofMutableByteArray# a)
+newText :: forall s. ST s (MText s)
+newText = A.new (bufferLength * 2) >>= \mt -> return $ MText mt 0
 
-lengthArray :: Array -> Int
-lengthArray (Array a) = I# (sizeofByteArray# a)
+bufToText :: MText s -> ST s Text
+bufToText (MText buf len) = do
+  fr <- A.unsafeFreeze buf
+  return $ Text fr 0 len
 
-newText :: forall s. Int -> ST s (MText s)
-newText s = A.new s >>= \mt -> return $ MText mt 0 0
-
-snocVec :: Char -> MText s -> ST s (MText s)
-snocVec v (MText a o l)
-  | (l+1)*2 > (lengthMArray a) = do
-    mt <- A.new ((lengthMArray a)*2)
-    A.copyM mt 0 a 0 (lengthMArray a)
-    snocVec v $ MText mt o l
-  | otherwise = do
+snocVec :: Char -> (MText s, Seq Text) -> ST s (MText s, Seq Text)
+snocVec v (mt@(MText a l),xs)
+  | l < bufferLength = do
     UC.unsafeWrite a l v -- writes a Char as a Word16
-    return $ MText a o (l+1)
+    return (MText a (l+1),xs)
+  | otherwise = do
+    newH <- newText
+    txt <- bufToText mt
+    snocVec v (newH, xs |> txt)
 
 -- TODO: ensure correctness
-appendVec :: Text -> MText s -> ST s (MText s)
-appendVec t@(Text ta to tl) (MText a o l)
-  | ((tl + l + o) * 2) > (lengthMArray a) = do
-    n <- A.new $ ((lengthMArray a) * 2) + (tl * 2)
-    A.copyM n 0 a (o*2) (l*2)
-    appendVec t $ MText n 0 l
+appendVec :: Text -> (MText s, Seq Text) -> ST s (MText s, Seq Text)
+appendVec t@(Text ta to tl) (mt@(MText a l),xs) 
+  | tl > copyLength = do -- 'mt' can't accommodate tl bytes.
+    performCopy copyLength -- copy 'copyableLength' bytes to 'mt'
+    newH <- newText -- create new mutable text buffer
+    let truncText = Text ta (to+copyLength) (tl-copyLength)
+    txt <- bufToText mt
+    appendVec truncText (newH, xs |> txt)
   | otherwise = do
-    A.copyI a (o+l) ta to (o+l+tl) -- copy t into mutable text
-    return $ MText a o (l+tl)
+    performCopy copyLength -- copy 'copyableLength' bytes to 'mt'
+    return (MText a (l+copyLength), xs)
+  where
+    performCopy len = A.copyI a l ta to (l + len)
+    minLength = tl + l -- minimum length of buffer to hold mtext++text
+    remaining = (bufferLength - l) -- bytes remaining in buffer
+    copyLength = minTwo remaining tl -- bytes to copy
+    minTwo a b
+      | a < b = a
+      | otherwise = b
 
 {- Public API -}
-  
--- TODO:
--- * BIG OPTIMIZATION: Chunked egyptian addition style appending.
---                     Avoid copying when larger than N bytes
+
+-- TODO: freeze buffers once they're full
 
 -- |Wrapper around a function that applies changes
--- to a mutable buffer in 'ST'.
--- TODO: Go back to (Ary -> ST Ary) -> Ary -> ST Ary
+-- to a sequence of mutable buffers in 'ST'.
 data Builder = Builder {
-  runBuilder :: forall s. (ST s (MText s) -> ST s (MText s)) -> ST s (MText s) -> ST s (MText s)
+  runBuilder :: forall s. ((MText s, Seq Text) -> ST s (MText s, Seq Text))
+             -> (MText s, Seq Text)
+             -> ST s (MText s, Seq Text)
 }
+
+evalBuilder :: Builder -> ST s [Text]
+evalBuilder (Builder f) = do
+  (h,t) <- newText >>= f return . (,S.empty)
+  flushed <- bufToText h
+  return $ toList $ t |> flushed
 
 instance Monoid Builder where
   mempty  = empty
@@ -87,29 +135,38 @@ instance Monoid Builder where
 instance STR.IsString Builder where
   fromString = fromString
 
+-- | O(1) create an empty 'Builder'
 empty :: Builder
 empty = Builder $ \f v -> f v
 
 -- biggest overhead comes from the binding operator
+-- | O(1) create a 'Builder' from a single 'Char'.
 singleton :: Char -> Builder
-singleton c = Builder $ \f v -> f $ v >>= snocVec c
+singleton c = Builder $ \f tup -> snocVec c tup >>= f
 
+-- | O(1) create a 'Builder' from a 'String'.
 fromString :: String -> Builder
-fromString [] = empty
-fromString xs = Builder $ \f v -> f $ v >>= appendStr xs
-  where appendStr xs v = foldlM (flip snocVec) v xs
+-- fromString [] = empty
+fromString s = fromText $ T.pack s-- Builder $ \f tup -> foldlM (flip snocVec) tup s >>= f
 
+-- | O(1) create a 'Builder' from a 'Text'.
 fromText :: Text -> Builder
-fromText t = Builder $ \f v -> f $ v >>= appendVec t
+fromText t = Builder $ \f tup -> appendVec t tup >>= f
 
+-- | O(1) append two 'Builder's.
 appendBuilder :: Builder -> Builder -> Builder
 appendBuilder (Builder a) (Builder b) = Builder $ a . b
   
+-- | O(n) Turn a 'Builder' into a 'Text'. While 'singleton', 'fromString',
+-- 'fromText', 'empty', and 'appendBuilder' don't do any direct processing,
+-- /the function they construct gets evaluated here/. @n@ is the length of
+-- the accumulated data to be built into a 'Text'
 toText :: Builder -> Text
-toText (Builder f) = runST $ do
-  (MText m o l) <- f id (newText 1024)
-  a <- A.unsafeFreeze m
-  return $ Text a o l
+toText = TL.toStrict . toLazyText 
+
+-- |Lazy version of 'toText'.
+toLazyText :: Builder -> TL.Text
+toLazyText b = runST $ TL.fromChunks <$> evalBuilder b
 
 -- INTEGERS
 
