@@ -30,17 +30,17 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.Selector
 import Data.Niagra.Block
+import Data.Niagra.Builder
   
 import Control.Monad.Identity
-import Data.Text.Lazy.Builder (Builder,toLazyText)
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Data.Monoid
 import Data.Foldable
 
 -- |Start a CSS declaration in monad @m@.
 css :: (Monad m) => NiagraT m () -- ^ the action to render
                  -> m Text -- ^ minified CSS
-css = fmap toLazyText . cssBuilder
+css = fmap toText . cssBuilder
 
 -- |Non-monadic vesion of 'css'.
 css' :: NiagraT Identity () -> Text

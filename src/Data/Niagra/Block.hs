@@ -24,10 +24,10 @@ module Data.Niagra.Block
 where
 
 import Data.Niagra.Selector
+import Data.Niagra.Builder
 
 import Data.Monoid
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy.Builder
+import Data.Text (Text)
 
 -- |A single declaration
 data Declaration = Declaration Text Builder
@@ -39,7 +39,7 @@ data Block = DeclarationBlock Selector [Declaration]-- ^ Create a block with a d
 -- |Determine if a block is empty.
 isEmpty :: Block -> Bool
 isEmpty (DeclarationBlock _ d2) = null d2
-isEmpty (BuilderBlock _ b2) = b2 == mempty
+isEmpty (BuilderBlock _ _) = False
 
 -- |Build a string from a 'Block'
 buildBlock :: Block -- ^ block to render
@@ -48,5 +48,5 @@ buildBlock (BuilderBlock sel b) = mconcat [buildSelector sel, "{", b, "}"]
 buildBlock (DeclarationBlock sel d) = buildBlock $ BuilderBlock sel $ buildDecls mempty d
   where
     buildDecls accum [] = accum
-    buildDecls accum [Declaration p v] = accum <> fromLazyText p <> ":" <> v
+    buildDecls accum [Declaration p v] = accum <> fromText p <> ":" <> v
     buildDecls accum (x:xs) = buildDecls (buildDecls accum [x] <> ";") xs

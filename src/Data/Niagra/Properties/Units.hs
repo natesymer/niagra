@@ -46,11 +46,9 @@ module Data.Niagra.Properties.Units
 where
   
 import Data.Niagra.Value
+import Data.Niagra.Builder
   
-import Data.Text.Lazy (Text)
-import Data.Text.Lazy.Builder
-import Data.Text.Lazy.Builder.RealFloat
-import Data.Text.Lazy.Builder.Int
+import Data.Text (Text)
 import Data.Monoid
 import Prelude hiding (rem)
 
@@ -62,9 +60,9 @@ data Measure where
  
 instance Value Measure where
   build (Measure _ 0) = decimal 0 -- exclude units for 0
-  build (Measure u s) = decimal s <> fromLazyText u
+  build (Measure u s) = decimal s <> fromText u
   build (MeasureDec _ 0.0) = realFloat 0.0 -- exclude units for 0
-  build (MeasureDec u s) = realFloat s <> fromLazyText u
+  build (MeasureDec u s) = realFloat s <> fromText u
   build MeasureAuto = "auto"
    
 data Operation = OpAdd | OpSub | OpDiv | OpMul

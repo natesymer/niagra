@@ -44,7 +44,7 @@ where
   
 import Data.Niagra.Selector
 import Data.String
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 import Prelude hiding (not)
 
 

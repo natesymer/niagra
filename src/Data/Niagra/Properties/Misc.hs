@@ -16,9 +16,9 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
+import Data.Niagra.Builder
 
 import Data.Monoid
-import Data.Text.Lazy.Builder (Builder,singleton)
 
 content :: (Monad m) => Builder -> NiagraT m ()
 content b = declaration "content" $ singleton '\'' <> b <> singleton '\''

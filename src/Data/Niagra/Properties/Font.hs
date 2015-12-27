@@ -12,10 +12,9 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
+import Data.Niagra.Builder
 
 import Data.Monoid
-import Data.Text.Lazy.Builder
-import Data.Text.Lazy.Builder.Int (decimal)
 
 font :: (Monad m) => Builder -> [Builder] -> NiagraT m ()
 font size fam = declaration "font" $ build [size, commaSeparate fam]
@@ -32,12 +31,11 @@ fontSize = declaration "font-size"
 {- INTERNAL -}
 
 commaSeparate :: [Builder] -> Builder
-commaSeparate = f mempty
+commaSeparate = f mempty True
   where
-    f a [] = a
-    f a (x:xs)
-      | a == mempty = f x xs
-      | otherwise = f (a <> singleton ',' <> x) xs
+    f a _ [] = a
+    f a True (x:xs) = f x False xs
+    f a False (x:xs) = f (a <> singleton ',' <> x) False xs
 
 {-
 TODO 

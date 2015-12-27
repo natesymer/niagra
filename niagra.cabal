@@ -36,11 +36,13 @@ library
                      Data.Niagra.Properties.Misc
                      Data.Niagra.Properties.Text
                      Data.Niagra.Properties.Units
+                     Data.Niagra.Builder
   hs-source-dirs:    src
   default-language:  Haskell2010
   build-depends:     base >=4.8 && <4.9,
                      transformers,
                      containers,
                      mtl,
-                     text
+                     text,
+                     ghc-prim
   

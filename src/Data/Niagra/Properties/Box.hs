@@ -38,9 +38,7 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
-
-import Data.Text.Lazy.Builder
-import Data.Text.Lazy.Builder.Int (decimal)
+import Data.Niagra.Builder
 
 bottom :: (Monad m) => Builder -> NiagraT m ()
 bottom = declaration "bottom"

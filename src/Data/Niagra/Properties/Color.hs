@@ -15,10 +15,7 @@ where
   
 import Data.Niagra.Monad
 import Data.Niagra.DSL
-
-import Data.Text.Lazy.Builder
-import Data.Text.Lazy.Builder.Int
-import Data.Text.Lazy.Builder.RealFloat
+import Data.Niagra.Builder
 import Data.Monoid
   
 -- TODO: HSL et al

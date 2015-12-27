@@ -5,12 +5,11 @@ module Main (main) where
 import Criterion.Main
 import Data.Niagra
 import Data.Monoid
-import Data.Text.Lazy.Builder
 import Prelude hiding (span)
 
 main :: IO ()
-main = defaultMain [bgroup "niagra" [bench "basic" $ whnf toLazyText basic,
-                                     bench "wordlist" $ whnf toLazyText wordlist]]
+main = defaultMain [bgroup "niagra" [bench "basic" $ whnf toText basic,
+                                     bench "wordlist" $ whnf toText wordlist]]
 
 basic :: Builder
 basic = cssBuilder' $ do

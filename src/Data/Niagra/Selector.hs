@@ -58,13 +58,14 @@ module Data.Niagra.Selector
 )
 where
 
+import Data.Niagra.Builder
+
 import Data.Monoid
 import Data.List (intersperse)
 import qualified Data.String as S
 
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy as TL
-import Data.Text.Lazy.Builder
+import Data.Text (Text)
+import qualified Data.Text as T
 
 -- |A CSS selector
 data Selector = Child Selector Selector -- ^ @a > b@
@@ -89,9 +90,9 @@ data Selector = Child Selector Selector -- ^ @a > b@
   deriving (Eq,Show)
 
 instance S.IsString Selector where
-  fromString = Raw . TL.pack
+  fromString = Raw . T.pack
   
--- |Serialize a 'Selector' into a 'Data.Text.Lazy.Builder'
+-- |Serialize a 'Selector' into a 'Data.Text.Builder'
 buildSelector :: Selector -> Builder
 buildSelector = f
   where
@@ -99,22 +100,22 @@ buildSelector = f
     parens = between '(' ')'
     brackets = between '[' ']'
     curlyb = between '{' '}'
-    quoted = between '"' '"' . fromLazyText
-    attr e a v = brackets $ fromLazyText a <> e <> "=" <> quoted v
+    quoted = between '"' '"' . fromText
+    attr e a v = brackets $ fromText a <> e <> "=" <> quoted v
     f Null = mempty
-    f (Raw v) = fromLazyText v
+    f (Raw v) = fromText v
     f (Child a b) = f a <> ">" <> f b
     f (Descendant a b) = f a <> " " <> f b
     f (ImmediatePrecedence a b) = f a <> "+" <> f b
     f (Precedence a b) = f a <> "~" <> f b
     f (PseudoClass a n (Just b)) = f (PseudoClass a n Nothing) <> parens (f b)
-    f (PseudoClass a n Nothing) = f a <> ":" <> fromLazyText n
+    f (PseudoClass a n Nothing) = f a <> ":" <> fromText n
     f (PseudoType a n (Just b)) = f (PseudoType a n Nothing) <> parens (f b)
-    f (PseudoType a n Nothing) = f a <> "::" <> fromLazyText n
-    f (Class a cls) = f a <> "." <> fromLazyText cls
-    f (Id a i) = f a <> "#" <> fromLazyText i
+    f (PseudoType a n Nothing) = f a <> "::" <> fromText n
+    f (Class a cls) = f a <> "." <> fromText cls
+    f (Id a i) = f a <> "#" <> fromText i
     f (SelectorList xs) = mconcat $ intersperse "," $ map f xs
-    f (AttrExistential s a) = f s <> brackets (fromLazyText a)
+    f (AttrExistential s a) = f s <> brackets (fromText a)
     f (AttrEquality s a v) = f s <> attr mempty a v
     f (AttrWhitespaceListContains s a v) = f s <> attr "~" a v
     f (AttrHyphenListContains s a v) = f s <> attr "|" a v

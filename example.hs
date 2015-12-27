@@ -4,12 +4,17 @@ module Main (main) where
   
 import Data.Niagra
 import Data.Monoid
-import Data.Text.Lazy (Text)
-import qualified Data.Text.Lazy.IO as TL
+import Data.Text (Text)
+import qualified Data.Text.IO as T
 import Prelude hiding (span)
 
 main :: IO ()
-main = css wordlist >>= TL.putStrLn
+main = css test >>= T.putStrLn
+
+test :: Monad m => NiagraT m ()
+test = do
+  cls "cls" ? do
+    margin [px 5, px 10, px 5, px 0]
 
 wordlist :: Monad m => NiagraT m ()
 wordlist = do

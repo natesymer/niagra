@@ -10,8 +10,7 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
-
-import Data.Text.Lazy.Builder (Builder)
+import Data.Niagra.Builder
   
 lineHeight :: (Monad m) => Builder -> NiagraT m ()
 lineHeight = declaration "line-height" . build

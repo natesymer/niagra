@@ -16,7 +16,7 @@ import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
 
-import Data.Text.Lazy.Builder
+import Data.Niagra.Builder
   
 background :: (Monad m, Value v) => v -> NiagraT m ()
 background = declaration "background" . build

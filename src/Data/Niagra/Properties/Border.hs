@@ -38,8 +38,7 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
-
-import Data.Text.Lazy.Builder
+import Data.Niagra.Builder
 
 {-
 TODO:

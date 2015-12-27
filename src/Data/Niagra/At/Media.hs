@@ -10,7 +10,7 @@ import Data.Niagra.Block
 import Data.Niagra.Selector
 import Data.Niagra.DSL
 
-import Data.Text.Lazy (Text)
+import Data.Text (Text)
 
 -- |A @media query.
 media :: (Monad m) => Text

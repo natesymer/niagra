@@ -31,7 +31,7 @@ import Data.Sequence (Seq(..),viewl,ViewL(..),(<|),(|>))
 import qualified Data.Sequence as S (singleton,empty,filter)
 import qualified Data.Foldable as F (toList)
 
-import Control.Monad.RWS.Lazy
+import Control.Monad.RWS.Strict
 
 -- |NiagraT monad transformer.
 newtype NiagraT m a = NiagraT (RWST () (Seq Block) (Seq (Selector,(Seq Declaration))) m a)

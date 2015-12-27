@@ -33,7 +33,7 @@ module Data.Niagra.Value
 where
 
 import Data.Monoid
-import Data.Text.Lazy.Builder (Builder,singleton,fromString)
+import Data.Niagra.Builder
 
 -- |Represents a CSS declaration value. 'Value' is designed to allow
 -- CSS properties with many space-separated values to be declared either
@@ -48,12 +48,11 @@ instance Value Builder where
   build = id
   
 instance Value [Builder] where
-  build = f ""
+  build = f mempty True
     where
-      f a [] = a
-      f a (x:xs)
-        | a == mempty = f x xs
-        | otherwise = f (a <> sp <> x) xs
+      f a _ [] = a
+      f a True (x:xs) = f x False xs
+      f a False (x:xs) = f (a <> sp <> x) False xs
 
 instance Value (Builder, Builder) where
   build (a,b) = a <> sp <> b
