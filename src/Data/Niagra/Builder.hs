@@ -11,10 +11,8 @@ module Data.Niagra.Builder
   realFloat
 )
 where
-  
-import Control.Monad.IO.Class
 
-import qualified Data.Text.IO as T
+import qualified Data.Text as T
 import Data.Text (Text)
 import Data.Monoid
 import qualified Data.String as STR
@@ -29,7 +27,6 @@ import GHC.Exts (Int(..))
 import Data.Foldable
 
 import Control.Monad.ST
-import Control.Monad.ST.Unsafe (unsafeIOToST)
 
 {- Internal Mutable text data structure -}
 
@@ -46,9 +43,9 @@ lengthMArray (MArray a) = I# (sizeofMutableByteArray# a)
 lengthArray :: Array -> Int
 lengthArray (Array a) = I# (sizeofByteArray# a)
 
-newText :: forall s. Int -> ST s (MText s) -- forall s. Int -> ST s (MText s)
+newText :: forall s. Int -> ST s (MText s)
 newText s = A.new s >>= \mt -> return $ MText mt 0 0
-  
+
 snocVec :: Char -> MText s -> ST s (MText s)
 snocVec v (MText a o l)
   | (l+1)*2 > (lengthMArray a) = do
@@ -58,22 +55,22 @@ snocVec v (MText a o l)
   | otherwise = do
     UC.unsafeWrite a l v -- writes a Char as a Word16
     return $ MText a o (l+1)
-    
+
+-- TODO: ensure correctness
 appendVec :: Text -> MText s -> ST s (MText s)
-appendVec t@(Text ia io il) (MText a o l)
-  | ((il + l + o) * 2) > (lengthMArray a) = do
-    -- unsafeIOToST $ T.putStrLn t
-    n <- A.new $ ((lengthMArray a) * 2) + (il * 2)
+appendVec t@(Text ta to tl) (MText a o l)
+  | ((tl + l + o) * 2) > (lengthMArray a) = do
+    n <- A.new $ ((lengthMArray a) * 2) + (tl * 2)
     A.copyM n 0 a (o*2) (l*2)
-    appendVec t $ MText n 0 $ l + il
+    appendVec t $ MText n 0 l
   | otherwise = do
-    A.copyI a (o+l) ia io (o+l+il) -- copy t into mutable text
-    return $ MText a o (l+il)
+    A.copyI a (o+l) ta to (o+l+tl) -- copy t into mutable text
+    return $ MText a o (l+tl)
 
 {- Public API -}
 
 data Builder = Builder {
-  runBuilder :: forall s. ((MText s) -> ST s (MText s)) -> (MText s) -> ST s (MText s)
+  runBuilder :: forall s. (MText s -> ST s (MText s)) -> MText s -> ST s (MText s)
 }
 
 instance Monoid Builder where
@@ -92,7 +89,7 @@ singleton c = Builder $ \f v -> snocVec c v >>= f
 
 fromString :: String -> Builder
 fromString [] = empty
-fromString xs = Builder $ \f v -> foldrM (flip snocVec) v xs >>= f
+fromString xs = Builder $ \f v -> foldlM (flip snocVec) v xs >>= f
 
 fromText :: Text -> Builder
 fromText t = Builder $ \f v -> appendVec t v >>= f 

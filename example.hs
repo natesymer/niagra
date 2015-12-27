@@ -9,7 +9,7 @@ import qualified Data.Text.IO as T
 import Prelude hiding (span)
 
 main :: IO ()
-main = css wordlist >>= T.putStrLn
+main = css example >>= T.putStrLn
 
 wordlist :: Monad m => NiagraT m ()
 wordlist = do
