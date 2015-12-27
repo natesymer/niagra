@@ -32,6 +32,7 @@ module Data.Niagra.Builder
   singleton,
   fromString,
   fromText,
+  fromLazyText,
   toText,
   toLazyText,
   decimal,
@@ -60,6 +61,7 @@ import qualified Data.Sequence as S
 
 import Data.Text.Internal (Text(..))
 import Data.Text.Array (MArray(..),Array(..))
+import Data.Text.Internal.Unsafe
 import qualified Data.Text.Array as A
 import qualified Data.Text.Internal.Unsafe.Char as UC (unsafeWrite)
 
@@ -75,29 +77,22 @@ data Buffer s = Buffer {
   bufferUsedLength :: !Int -- ^ number of 'Word16's in the buffer
 }
 
--- |Shrink's a buffer's internal 'MutableByteArray#' to its
--- length, @l@.
-shrinkBuffer :: Buffer s -> ST s ()
-shrinkBuffer (Buffer (MArray b) (I# l)) = ST $ \s -> (# (shrinkMutableByteArray# b l s), () #)
-
--- |Safer than A.unsafeFreeze, which just uses 'unsafeCoerce#'
-freezeMArray :: MArray s -> ST s Array
-freezeMArray (MArray b) = ST $ \s -> case unsafeFreezeByteArray# b s of
-  (# new_s,a #) -> (# new_s,Array a #)
-  
 -- |Like A.new, but doesn't check n for negativity
+{-# INLINE unsafeNewBuffer #-}
 unsafeNewBuffer :: ST s (Buffer s)
 unsafeNewBuffer = ST $ \s -> case newByteArray# aryLen s of
   (# new_s, marr #) -> (# new_s, Buffer (MArray marr) 0 #)
   where !(I# aryLen) = bufferLength * 2
 
 -- |Create a strict text out of a buffer.
+{-# INLINE bufferToText #-}
 bufferToText :: Buffer s -> ST s Text
-bufferToText b@(Buffer buf len) = do
-  shrinkBuffer b
-  fr <- freezeMArray buf
-  return $ Text fr 0 len
+bufferToText (Buffer (MArray b) len@(I# l)) = ST $ \s ->
+  case shrinkMutableByteArray# b l s of
+    s' -> case unsafeFreezeByteArray# b s' of
+      (# s'',a #) -> (# s'', (Text (Array a) 0 len) #)
 
+-- |Append a char to the end of a buffered sequence
 snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
 snocVec v (b@(Buffer a l),xs)
   | l < bufferLength = do
@@ -108,14 +103,15 @@ snocVec v (b@(Buffer a l),xs)
     txt <- bufferToText b
     snocVec v (newH, xs |> txt)
 
--- | Append a 'Text' to our buffered text sequence
+-- | Append a 'Text' to the end of a buffered text sequence
 appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
 appendVec t@(Text ta to tl) (mt@(Buffer a l),xs)
   | tl > copyLength = do -- 'mt' can't accommodate tl bytes
     performCopy copyLength
     newH <- unsafeNewBuffer
     txt <- bufferToText mt
-    appendVec (Text ta (to+copyLength) (tl-copyLength)) (newH, xs |> txt)
+    let !newt = Text ta (to+copyLength) (tl-copyLength)
+    appendVec newt (newH, xs |> txt)
   | otherwise = do
     performCopy copyLength
     return (Buffer a (l+copyLength), xs)
@@ -166,6 +162,10 @@ fromString s = fromText $ T.pack s-- Builder $ \f tup -> foldlM (flip snocVec) t
 -- | O(1) create a 'Builder' from a 'Text'.
 fromText :: Text -> Builder
 fromText t = Builder $ \f tup -> appendVec t tup >>= f
+
+-- | O(1) create a 'Builder' from a lazy 'Text'.
+fromLazyText :: TL.Text -> Builder
+fromLazyText = mconcat . map fromText . TL.toChunks
 
 -- | O(1) append two 'Builder's.
 appendBuilder :: Builder -> Builder -> Builder
