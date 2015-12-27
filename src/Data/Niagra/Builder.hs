@@ -92,29 +92,31 @@ bufferToText (Buffer (MArray b) len@(I# l)) = ST $ \s ->
     s' -> case unsafeFreezeByteArray# b s' of
       (# s'',a #) -> (# s'', (Text (Array a) 0 len) #)
 
+-- |Convert the current buffer to a 'Text' and append it to the
+-- end of the sequence. Create a new current buffer.
+-- TODO: Turn into a single ST action
+{-# INLINE pushBuffer #-}
+pushBuffer :: (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
+pushBuffer (b,xs) = do
+  newH <- unsafeNewBuffer
+  txt <- bufferToText b
+  return (newH, xs |> txt)
+
 -- |Append a char to the end of a buffered sequence
 snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-snocVec v (b@(Buffer a l),xs)
+snocVec v tup@((Buffer a l),xs)
   | l < bufferLength = do
     n <- UC.unsafeWrite a l v -- writes a Char as a 'Word16's
     return (Buffer a (l+n),xs)
-  | otherwise = do
-    newH <- unsafeNewBuffer
-    txt <- bufferToText b
-    snocVec v (newH, xs |> txt)
+  | otherwise = pushBuffer tup >>= snocVec v
 
 -- | Append a 'Text' to the end of a buffered text sequence
 appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-appendVec t@(Text ta to tl) (mt@(Buffer a l),xs)
-  | tl > copyLength = do -- 'mt' can't accommodate tl bytes
-    performCopy copyLength
-    newH <- unsafeNewBuffer
-    txt <- bufferToText mt
-    let !newt = Text ta (to+copyLength) (tl-copyLength)
-    appendVec newt (newH, xs |> txt)
-  | otherwise = do
-    performCopy copyLength
-    return (Buffer a (l+copyLength), xs)
+appendVec t@(Text ta to tl) tup@(mt@(Buffer a l),xs) = do
+  performCopy copyLength
+  if tl > copyLength  -- 'mt' can't accommodate tl bytes
+    then pushBuffer tup >>= appendVec (Text ta (to+copyLength) (tl-copyLength))
+    else return (Buffer a (l+copyLength), xs)
   where
     performCopy len = A.copyI a l ta to (l + len) -- copy 'len' bytes into 'mt'
     minLength = tl + l -- minimum length of buffer to hold mtext++text
