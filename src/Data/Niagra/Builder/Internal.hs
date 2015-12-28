@@ -103,33 +103,26 @@ pushBuffer (b,xs) = do
   frzn <- bufferToText b
   (, xs |> frzn) <$> newPinnedBuffer
 
--- TODO: what if the 'Char' must be 2 'Word16's? then the length
--- check would break
 -- |Append a char to the end of a buffered sequence
 snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-snocVec v tup@((Buffer a l),xs)
-  | l < bufferLength = (,xs) . Buffer a . (+) l <$> unsafeWriteChar a l v
-  | otherwise = pushBuffer tup >>= snocVec v
-  
--- snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
--- snocVec c tup@((Buffer a l),xs)
---   | n < 0x10000 = do
---     if l+1 > bufferLength
---       then pushBuffer tup >>= snocVec c
---       else do
---         writeWord16 a l $ fromIntegral n
---         return (Buffer a (l+1), xs)
---   | otherwise = do
---       if l+2 > bufferLength
---         then pushBuffer tup >>= snocVec c
---         else do
---           writeWord16 a l lo
---           writeWord16 a (l+1) hi
---           return (Buffer a (l+2), xs)
---   where n = ord c
---         m = n - 0x10000
---         lo = fromIntegral $ (m `shiftR` 10) + 0xD800
---         hi = fromIntegral $ (m .&. 0x3FF) + 0xDC00
+snocVec c tup@((Buffer a l),xs)
+  | n < 0x10000 = do
+    if l+1 > bufferLength
+      then pushBuffer tup >>= snocVec c
+      else do
+        writeWord16 a l $ fromIntegral n
+        return (Buffer a (l+1), xs)
+  | otherwise = do
+      if l+2 > bufferLength
+        then pushBuffer tup >>= snocVec c
+        else do
+          writeWord16 a l lo
+          writeWord16 a (l+1) hi
+          return (Buffer a (l+2), xs)
+  where n = ord c
+        m = n - 0x10000
+        lo = fromIntegral $ (m `shiftR` 10) + 0xD800
+        hi = fromIntegral $ (m .&. 0x3FF) + 0xDC00
 
 -- | Append a 'Text' to the end of a buffered text sequence
 appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
