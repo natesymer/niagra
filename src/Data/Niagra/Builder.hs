@@ -46,10 +46,10 @@ import Control.Monad.ST
 import GHC.Prim
 import GHC.Exts hiding (fromString,toList)
 import GHC.ST
+import GHC.Word (Word16(..))
 
 import Data.Char
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 
 import Data.Monoid
@@ -59,11 +59,11 @@ import qualified Data.String as STR
 import Data.Sequence (Seq(..), (|>))
 import qualified Data.Sequence as S
 
+import Data.Bits ((.&.))
 import Data.Text.Internal (Text(..))
 import Data.Text.Array (MArray(..),Array(..))
-import Data.Text.Internal.Unsafe
+import Data.Text.Internal.Unsafe.Shift (shiftR)
 import qualified Data.Text.Array as A
-import qualified Data.Text.Internal.Unsafe.Char as UC (unsafeWrite)
 
 {- Internal Mutable text data structure -}
 
@@ -73,52 +73,68 @@ bufferLength = 128
 
 -- |Buffer used when evaluating builders
 data Buffer s = Buffer {
-  bufferArray :: !(MArray s), -- ^ contains 'Word16's
+  bufferArray :: !(MutableByteArray# s), -- ^ contains 'Word16's
   bufferUsedLength :: !Int -- ^ number of 'Word16's in the buffer
 }
+
+-- |Write a character into the array at the given offset. Returns
+-- the number of 'Word16's written.
+{-# INLINE unsafeWriteChar #-}
+unsafeWriteChar :: MutableByteArray# s -> Int -> Char -> ST s Int
+unsafeWriteChar marr# (I# i#) c
+  | n < 0x10000 = ST $ \s -> (# (writeWord16Array# marr# i# nw16# s), 1 #)
+  | otherwise = ST $ \s -> (# (writeWord16Array# marr# (i# +# 1#) lo#
+                                (writeWord16Array# marr# i# hi# s)
+                               ), 2 #)
+  where n = ord c
+        m = n - 0x10000
+        !(W16# nw16#) = fromIntegral n
+        !(W16# lo#) = fromIntegral $ (m `shiftR` 10) + 0xD800
+        !(W16# hi#) = fromIntegral $ (m .&. 0x3FF) + 0xDC00
 
 -- |Like A.new, but doesn't check n for negativity
 {-# INLINE unsafeNewBuffer #-}
 unsafeNewBuffer :: ST s (Buffer s)
 unsafeNewBuffer = ST $ \s -> case newByteArray# aryLen s of
-  (# new_s, marr #) -> (# new_s, Buffer (MArray marr) 0 #)
+  (# new_s, marr #) -> (# new_s, Buffer marr 0 #)
   where !(I# aryLen) = bufferLength * 2
 
 -- |Create a strict text out of a buffer.
 {-# INLINE bufferToText #-}
 bufferToText :: Buffer s -> ST s Text
-bufferToText (Buffer (MArray b) len@(I# l)) = ST $ \s ->
-  case shrinkMutableByteArray# b l s of
-    s' -> case unsafeFreezeByteArray# b s' of
-      (# s'',a #) -> (# s'', (Text (Array a) 0 len) #)
+bufferToText (Buffer b# len@(I# l#)) = ST $ \s ->
+  case shrinkMutableByteArray# b# l# s of
+    s' -> case unsafeFreezeByteArray# b# s' of
+      (# s'',a# #) -> (# s'', (Text (Array a#) 0 len) #)
 
 -- |Convert the current buffer to a 'Text' and append it to the
 -- end of the sequence. Create a new current buffer.
--- TODO: Turn into a single ST action
 {-# INLINE pushBuffer #-}
 pushBuffer :: (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-pushBuffer (b,xs) = do
-  newH <- unsafeNewBuffer
-  txt <- bufferToText b
-  return (newH, xs |> txt)
+pushBuffer (Buffer b# len@(I# l),xs) = ST $ \s ->
+  case shrinkMutableByteArray# b# l s of
+    s' -> case unsafeFreezeByteArray# b# s' of
+      (# s'',a #) -> case newByteArray# aryLen s'' of
+        (# ns'', marr #) -> (# ns'', ((Buffer marr 0), xs |> (Text (Array a) 0 len)) #)
+  where !(I# aryLen) = bufferLength * 2
 
 -- |Append a char to the end of a buffered sequence
 snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
 snocVec v tup@((Buffer a l),xs)
   | l < bufferLength = do
-    n <- UC.unsafeWrite a l v -- writes a Char as a 'Word16's
+    n <- unsafeWriteChar a l v -- writes a Char as a 'Word16's
     return (Buffer a (l+n),xs)
   | otherwise = pushBuffer tup >>= snocVec v
 
 -- | Append a 'Text' to the end of a buffered text sequence
 appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-appendVec t@(Text ta to tl) tup@(mt@(Buffer a l),xs) = do
+appendVec t@(Text ta to tl) tup@((Buffer a l),xs) = do
   performCopy copyLength
   if tl > copyLength  -- 'mt' can't accommodate tl bytes
     then pushBuffer tup >>= appendVec (Text ta (to+copyLength) (tl-copyLength))
     else return (Buffer a (l+copyLength), xs)
   where
-    performCopy len = A.copyI a l ta to (l + len) -- copy 'len' bytes into 'mt'
+    performCopy len = A.copyI (MArray a) l ta to (l + len) -- copy 'len' bytes into 'a'
     minLength = tl + l -- minimum length of buffer to hold mtext++text
     remaining = (bufferLength - l) -- bytes remaining in buffer
     copyLength = minTwo remaining tl -- bytes to copy
@@ -159,7 +175,7 @@ singleton c = Builder $ \f tup -> snocVec c tup >>= f
 -- | O(1) create a 'Builder' from a 'String'.
 fromString :: String -> Builder
 -- fromString [] = empty
-fromString s = fromText $ T.pack s-- Builder $ \f tup -> foldlM (flip snocVec) tup s >>= f
+fromString s = Builder $ \f tup -> foldlM (flip snocVec) tup s >>= f
 
 -- | O(1) create a 'Builder' from a 'Text'.
 fromText :: Text -> Builder
