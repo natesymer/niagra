@@ -18,10 +18,8 @@ crucial for accumulating chunks in as little time
 possible.
 
 Furthermore, this builder only copies a given sequence
-of bytes at most twice:
-
-1. from 'Text','String', or 'Char' to buffer.
-2. when creating an eager 'Text'
+of bytes at most once: from a 'Text','String', or 'Char'
+to a buffer.
 
 -}
 
@@ -64,7 +62,7 @@ data Builder = Builder {
 
 evalBuilder :: Builder -> ST s [Text]
 evalBuilder (Builder f) = do
-  (h,t) <- newPinnedBuffer >>= f return . (,S.empty)
+  (h,t) <- unsafeNewBuffer >>= f return . (,S.empty)
   flushed <- bufferToText h
   return $ toList $ t |> flushed
 
@@ -96,7 +94,7 @@ fromText t = Builder $ \f tup -> appendVec t tup >>= f
 
 -- | O(1) create a 'Builder' from a lazy 'Text'.
 fromLazyText :: TL.Text -> Builder
-fromLazyText = mconcat . map fromText . TL.toChunks
+fromLazyText t = Builder $ \f tup -> foldlM (flip appendVec) tup (TL.toChunks t) >>= f
 
 -- | O(1) append two 'Builder's.
 appendBuilder :: Builder -> Builder -> Builder
