@@ -16,6 +16,7 @@ where
 import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Builder
+import Data.Niagra.Builder.Numbers
 import Data.Monoid
   
 -- TODO: HSL et al

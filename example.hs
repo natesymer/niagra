@@ -78,7 +78,7 @@ example = do
       "border" .= "none"
 
   fontFace $ do
-    "src" .= "url(/assets/fonts/oxygen/Oxygen-Bold.woff2)"
+    "src" .= "url('/assets/fonts/oxygen/Oxygen-Bold.woff2')"
 
   media "screen" $ do
     body ? do

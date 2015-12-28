@@ -39,6 +39,7 @@ import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
 import Data.Niagra.Builder
+import Data.Niagra.Builder.Numbers
 
 bottom :: (Monad m) => Builder -> NiagraT m ()
 bottom = declaration "bottom"

@@ -25,7 +25,7 @@ of bytes at most twice:
 
 -}
 
-{-# LANGUAGE Rank2Types, MagicHash, BangPatterns, UnboxedTuples, TupleSections #-}
+{-# LANGUAGE Rank2Types, TupleSections #-}
 module Data.Niagra.Builder
 (
   Builder(..),
@@ -34,113 +34,25 @@ module Data.Niagra.Builder
   fromText,
   fromLazyText,
   toText,
-  toLazyText,
-  decimal,
-  hexadecimal,
-  realFloat
+  toLazyText
 )
 where
 
+import Data.Niagra.Builder.Internal
+
 import Control.Monad.ST
 
-import GHC.Prim
-import GHC.Exts hiding (fromString,toList)
-import GHC.ST
-import GHC.Word (Word16(..))
-
-import Data.Char
 import Data.Text (Text)
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 
-import Data.Monoid
 import Data.Foldable
 import qualified Data.String as STR
 
 import Data.Sequence (Seq(..), (|>))
 import qualified Data.Sequence as S
 
-import Data.Bits ((.&.))
-import Data.Text.Internal (Text(..))
-import Data.Text.Array (MArray(..),Array(..))
-import Data.Text.Internal.Unsafe.Shift (shiftR)
-import qualified Data.Text.Array as A
-
-{- Internal Mutable text data structure -}
-
--- | Buffer length in 'Word16's (ie 'bufferLength' 'Word16's per buffer)
-bufferLength :: Int
-bufferLength = 128
-
--- |Buffer used when evaluating builders
-data Buffer s = Buffer {
-  bufferArray :: !(MutableByteArray# s), -- ^ contains 'Word16's
-  bufferUsedLength :: !Int -- ^ number of 'Word16's in the buffer
-}
-
--- |Write a character into the array at the given offset. Returns
--- the number of 'Word16's written.
-{-# INLINE unsafeWriteChar #-}
-unsafeWriteChar :: MutableByteArray# s -> Int -> Char -> ST s Int
-unsafeWriteChar marr# (I# i#) c
-  | n < 0x10000 = ST $ \s -> (# (writeWord16Array# marr# i# nw16# s), 1 #)
-  | otherwise = ST $ \s -> (# (writeWord16Array# marr# (i# +# 1#) lo#
-                                (writeWord16Array# marr# i# hi# s)
-                               ), 2 #)
-  where n = ord c
-        m = n - 0x10000
-        !(W16# nw16#) = fromIntegral n
-        !(W16# lo#) = fromIntegral $ (m `shiftR` 10) + 0xD800
-        !(W16# hi#) = fromIntegral $ (m .&. 0x3FF) + 0xDC00
-
--- |Like A.new, but doesn't check n for negativity
-{-# INLINE unsafeNewBuffer #-}
-unsafeNewBuffer :: ST s (Buffer s)
-unsafeNewBuffer = ST $ \s -> case newByteArray# aryLen s of
-  (# new_s, marr #) -> (# new_s, Buffer marr 0 #)
-  where !(I# aryLen) = bufferLength * 2
-
--- |Create a strict text out of a buffer.
-{-# INLINE bufferToText #-}
-bufferToText :: Buffer s -> ST s Text
-bufferToText (Buffer b# len@(I# l#)) = ST $ \s ->
-  case shrinkMutableByteArray# b# l# s of
-    s' -> case unsafeFreezeByteArray# b# s' of
-      (# s'',a# #) -> (# s'', (Text (Array a#) 0 len) #)
-
--- |Convert the current buffer to a 'Text' and append it to the
--- end of the sequence. Create a new current buffer.
-{-# INLINE pushBuffer #-}
-pushBuffer :: (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-pushBuffer (Buffer b# len@(I# l),xs) = ST $ \s ->
-  case shrinkMutableByteArray# b# l s of
-    s' -> case unsafeFreezeByteArray# b# s' of
-      (# s'',a #) -> case newByteArray# aryLen s'' of
-        (# ns'', marr #) -> (# ns'', ((Buffer marr 0), xs |> (Text (Array a) 0 len)) #)
-  where !(I# aryLen) = bufferLength * 2
-
--- |Append a char to the end of a buffered sequence
-snocVec :: Char -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-snocVec v tup@((Buffer a l),xs)
-  | l < bufferLength = do
-    n <- unsafeWriteChar a l v -- writes a Char as a 'Word16's
-    return (Buffer a (l+n),xs)
-  | otherwise = pushBuffer tup >>= snocVec v
-
--- | Append a 'Text' to the end of a buffered text sequence
-appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
-appendVec t@(Text ta to tl) tup@((Buffer a l),xs) = do
-  performCopy copyLength
-  if tl > copyLength  -- 'mt' can't accommodate tl bytes
-    then pushBuffer tup >>= appendVec (Text ta (to+copyLength) (tl-copyLength))
-    else return (Buffer a (l+copyLength), xs)
-  where
-    performCopy len = A.copyI (MArray a) l ta to (l + len) -- copy 'len' bytes into 'a'
-    minLength = tl + l -- minimum length of buffer to hold mtext++text
-    remaining = (bufferLength - l) -- bytes remaining in buffer
-    copyLength = minTwo remaining tl -- bytes to copy
-    minTwo a b | a < b = a | otherwise = b
-
-{- Public API -}
+-- TODO: Fix buffer issues with strings
 
 -- |Wrapper around a function that applies changes
 -- to a sequence of mutable buffers in 'ST'.
@@ -152,7 +64,7 @@ data Builder = Builder {
 
 evalBuilder :: Builder -> ST s [Text]
 evalBuilder (Builder f) = do
-  (h,t) <- unsafeNewBuffer >>= f return . (,S.empty)
+  (h,t) <- newPinnedBuffer >>= f return . (,S.empty)
   flushed <- bufferToText h
   return $ toList $ t |> flushed
 
@@ -176,6 +88,7 @@ singleton c = Builder $ \f tup -> snocVec c tup >>= f
 fromString :: String -> Builder
 -- fromString [] = empty
 fromString s = Builder $ \f tup -> foldlM (flip snocVec) tup s >>= f
+-- fromString = fromText . T.pack
 
 -- | O(1) create a 'Builder' from a 'Text'.
 fromText :: Text -> Builder
@@ -199,48 +112,3 @@ toText = TL.toStrict . toLazyText
 -- |Lazy version of 'toText'.
 toLazyText :: Builder -> TL.Text
 toLazyText b = runST $ TL.fromChunks <$> evalBuilder b
-
--- INTEGERS
-
-decimal :: Integral a => a -> Builder
-decimal v
-  | v < 0 = singleton '-' <> decimal (abs v)
-  | v == 0 = singleton '0'
-  | otherwise = f mempty v
-  where
-    f :: (Integral a) => Builder -> a -> Builder
-    f acc 0 = acc
-    f acc v = let (q,r) = quotRem v 10
-                  c = chr $ 48 + (fromIntegral r)
-              in f ((singleton c) <> acc) q
-
--- TODO: two's compliment signed hex
--- |Render a *signed* hexadecimal number to a Builder
-hexadecimal :: Integral a => a -> Builder
-hexadecimal v
-  | v < 0 = error "UNIMPLEMENTED: negative hexadecimal two's compliment representations."
-  | v == 0 = singleton '0'
-  | otherwise = f mempty v
-  where
-    f :: (Integral a) => Builder -> a -> Builder
-    f acc 0 = acc
-    f acc v = let (q,r) = quotRem v 16
-                  c = hexChar r
-              in f ((singleton c) <> acc) q
-    hexChar v
-      | v < 10 = chr $ 48 + (fromIntegral v)
-      | otherwise = chr $ 65 + (fromIntegral v) - 10
-      
-realFloat :: RealFloat a => a -> Builder
-realFloat v
-  | v < 0 = singleton '-' <> realFloat (abs v)
-  | v == 0.0 = fromString "0.0"
-  | otherwise = let (sig,rad) = decodeFloat v
-                in f mempty rad (abs sig)
-  where
-    -- TODO: add decimal point
-    f :: Builder -> Int -> Integer -> Builder
-    f acc _ 0 = acc
-    f acc 0 v = let (q,r) = quotRem v 10 in f ((singleton $ decChar r) <> acc) 0 q
-    f acc rdx v = let (q,r) = quotRem v 10 in f ((singleton $ decChar r) <> acc) (rdx-1) q
-    decChar v = chr $ 48 + (fromIntegral v)

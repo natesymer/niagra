@@ -13,6 +13,7 @@ import Data.Niagra.Monad
 import Data.Niagra.DSL
 import Data.Niagra.Value
 import Data.Niagra.Builder
+import Data.Niagra.Builder.Numbers
 
 import Data.Monoid
 
