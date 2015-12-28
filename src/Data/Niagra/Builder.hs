@@ -43,7 +43,6 @@ import Data.Niagra.Builder.Internal
 import Control.Monad.ST
 
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 
 import Data.Foldable
@@ -52,7 +51,8 @@ import qualified Data.String as STR
 import Data.Sequence (Seq(..), (|>))
 import qualified Data.Sequence as S
 
--- TODO: Fix buffer issues with strings
+-- TODO:
+-- * Faster string-centric routine
 
 -- |Wrapper around a function that applies changes
 -- to a sequence of mutable buffers in 'ST'.
@@ -86,9 +86,9 @@ singleton c = Builder $ \f tup -> snocVec c tup >>= f
 
 -- | O(1) create a 'Builder' from a 'String'.
 fromString :: String -> Builder
--- fromString [] = empty
+fromString [] = empty
+fromString [x] = singleton x
 fromString s = Builder $ \f tup -> foldlM (flip snocVec) tup s >>= f
--- fromString = fromText . T.pack
 
 -- | O(1) create a 'Builder' from a 'Text'.
 fromText :: Text -> Builder
