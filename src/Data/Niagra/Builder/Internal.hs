@@ -20,6 +20,7 @@ import GHC.Word (Word16(..))
 
 import Data.Char
 import Data.Bits ((.&.))
+import qualified Data.Text as T
 import Data.Text.Internal (Text(..))
 import Data.Text.Array (Array(..))
 import Data.Text.Internal.Unsafe.Shift (shiftR)
@@ -129,7 +130,7 @@ appendVec :: Text -> (Buffer s, Seq Text) -> ST s (Buffer s, Seq Text)
 appendVec t@(Text ta@(Array tbuf) to tl) tup@((Buffer a l),xs) = do
   copyBA a l tbuf to copyLength
   if tl > remaining  -- 'mt' can't accommodate tl bytes
-    then pushBuffer tup >>= appendVec (Text ta (to+copyLength) (tl-copyLength))
+    then pushBuffer (Buffer a (l+copyLength),xs) >>= appendVec (Text ta (to+copyLength) (tl-copyLength))
     else return (Buffer a (l+copyLength), xs)
   where
     remaining = bufferLength - l -- 'Word16's remaining in buffer
