@@ -7,9 +7,7 @@ module Data.Niagra.At.Media
 where
 
 import Data.Niagra.Monad
-import Data.Niagra.Block
 import Data.Niagra.Selector
-import Data.Niagra.DSL
 import Data.Niagra.Builder (Builder)
 
 import Data.Text (Text)

@@ -35,9 +35,7 @@ import Control.Monad.Trans.Class
 
 import Data.Sequence as Sq
 
--- TODO: Typeclasses to replace functions & fresh incomplete state.
-
--- | AccumulatorT type. TODO explain types
+-- | AccumulatorT type.
 newtype AccumulatorT s i m a = AccumulatorT {
   runAccumulatorT :: (i -> s) -- ^ function to turn the incomplete state into an accumulation
                   -> i -- ^ empty/fresh incomplete state

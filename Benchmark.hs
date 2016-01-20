@@ -47,7 +47,7 @@ basic = cssBuilder' $ do
   fontFace $ do
     "src" .= "url(/assets/fonts/oxygen/Oxygen-Bold.woff2)"
   
-  media "screen" $ do
+  media' "screen" $ do
     body ? do
       "background-color" .= "lightgreen"
       

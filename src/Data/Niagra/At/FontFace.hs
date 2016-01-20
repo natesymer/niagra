@@ -7,7 +7,6 @@ where
 
 import Data.Niagra.Selector
 import Data.Niagra.Monad
-import Data.Niagra.DSL
   
 -- |A @font-face
 fontFace :: (Monad m) => NiagraT m () -- ^ content of the @font-face
