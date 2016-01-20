@@ -34,8 +34,6 @@ import Data.Niagra.Builder
   
 import Control.Monad.Identity
 import Data.Text (Text)
-import Data.Monoid
-import Data.Foldable
 
 -- |Start a CSS declaration in monad @m@.
 css :: (Monad m) => NiagraT m () -- ^ the action to render
@@ -49,8 +47,8 @@ css' = runIdentity . css
 -- |Start a CSS declaration in monad @m@ that returns a 'Builder'.
 cssBuilder :: (Monad m) => NiagraT m () -- ^ the action to render
                         -> m Builder -- ^ builder that builds CSS
-cssBuilder = fmap reduce . execNiagraT Null
-  where reduce = foldl' (\a b -> a <> (buildBlock b)) mempty
+cssBuilder = fmap reduce . runNiagraT
+  where reduce = foldMap buildBlock
 
 -- |Non-monadic version of 'cssBuilder'.
 cssBuilder' :: NiagraT Identity () -> Builder 
@@ -60,16 +58,13 @@ cssBuilder' = runIdentity . cssBuilder
 block :: (Monad m) => Selector -- ^ block's selector that
                    -> NiagraT m () -- ^ action declaring the block
                    -> NiagraT m ()
-block sel declarator = do
-  withNewScope sel $ do
-    declarator
-    getCurrentBlock >>= addBlock
+block = childScope
 
 -- |Make a declaration.
 declaration :: (Monad m) => Text -- ^ property
                          -> Builder -- ^ value
                          -> NiagraT m ()
-declaration p v = addDeclaration $ Declaration p v
+declaration = addDeclaration
 
 -- |Operator equivalent of 'block'.
 infix 0 ?

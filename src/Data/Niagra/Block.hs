@@ -27,7 +27,7 @@ import Data.Niagra.Selector
 import Data.Niagra.Builder
 
 import Data.Monoid
-import Data.Text (Text)
+import Data.Text (Text,unpack)
 
 -- |A single declaration
 data Declaration = Declaration Text Builder

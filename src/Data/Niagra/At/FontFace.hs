@@ -5,10 +5,11 @@ module Data.Niagra.At.FontFace
 )
 where
 
+import Data.Niagra.Selector
 import Data.Niagra.Monad
 import Data.Niagra.DSL
   
 -- |A @font-face
 fontFace :: (Monad m) => NiagraT m () -- ^ content of the @font-face
                       -> NiagraT m ()
-fontFace = block "@font-face"
+fontFace = rootScope FontFace

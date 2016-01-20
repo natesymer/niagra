@@ -84,10 +84,10 @@ data Selector = Child Selector Selector -- ^ @a > b@
               | Class Selector Text -- ^ @h2.myclass@
               | Id Selector Text -- ^ @a#mylink@
               | FontFace -- ^ @@font-face@
+              | Media Bool Text [(Text,Builder)]-- ^ @@media@
               | SelectorList [Selector] -- ^ @a, h2, .myclass@
               | Raw Text -- ^ plain string to be rendered-as is in CSS
               | Null -- ^ null string
-  deriving (Eq,Show)
 
 instance S.IsString Selector where
   fromString = Raw . T.pack
@@ -123,6 +123,17 @@ buildSelector = f
     f (AttrEndsWith s a v) = f s <> attr "$" a v
     f (AttrSubstring s a v) = f s <> attr "*" a v
     f FontFace = "@font-face"
+    f (Media isOnly v pairs) = "@media"
+                             <> singleton ' '
+                             <> buildOnly isOnly
+                             <> singleton ' '
+                             <> fromText v
+                             <> buildPairs pairs
+      where buildPair (a,b) = fromText a <> singleton ':' <> b
+            buildPairs [] = ""
+            buildPairs x = " and " <> "(" <> mconcat (map buildPair pairs) <> ")"
+            buildOnly True = "only"
+            buildOnly False = "not"
   
 -- TODO: Rewrite list concat functionality elsewhere
 --       and use monoid instance to implement (<||>)
@@ -243,6 +254,9 @@ infixl 7 <||>
 (<||>) s (SelectorList xs) = SelectorList $ map (\a -> s <||> a) xs
 (<||>) s (Id i eyeD) = Id (s <||> i) eyeD
 (<||>) s (Class i c) = Class (s <||> i) c
+-- ensure @media & @font-face aren't nested
+(<||>) _ FontFace = FontFace
+(<||>) _ m@(Media _ _ _) = m
 -- lineage case
 (<||>) s s' = Descendant s s'
 
@@ -299,3 +313,25 @@ infixl 9 |*=|
        -> Text -- ^ substring in attribute
        -> Selector
 (|*=|) = AttrSubstring Null
+
+-- parseAttribute :: String -> Either String Attribute
+-- parseAttribute s = either Left f . eitherResult . A.parse parser . B.pack $ s
+--   where
+--     -- lexer
+--     f (attrname,Nothing,Nothing)  = Right $ Existential attrname
+--     f (attrname,Just "=",Just v)  = Right $ Equality attrname v
+--     f (attrname,Just "~=",Just v) = Right $ WhitespaceListContains attrname v
+--     f (attrname,Just "|=",Just v) = Right $ HyphenListContains attrname v
+--     f (attrname,Just "^=",Just v) = Right $ BeginsWith attrname v
+--     f (attrname,Just "$=",Just v) = Right $ EndsWith attrname v
+--     f (attrname,Just "*=",Just v) = Right $ Substring attrname v
+--     f _                           = Left $ "invalid attribute selector: " ++ s
+--     -- grammar
+--     parser = (,,) <$> attribute <*> separator <*> value
+--     separator = fmap B.unpack <$> (optional ("=" <|> "~=" <|> "|=" <|> "^=" <|> "$=" <|> "*="))
+--     value = optional $ char '"' *> (many $ satisfy (/= '"')) <* char '"'
+--     attribute = B.unpack <$> takeWhile1 p
+--       where
+--         -- returns @True@ for -_a-zA-Z
+--         p = f . ord where f c = c == 45 || c == 95 || c >= 65 && c <= 90 || c >= 97 && c <= 122
+--

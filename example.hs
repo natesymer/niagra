@@ -9,7 +9,7 @@ import qualified Data.Text.IO as T
 import Prelude hiding (span)
 
 main :: IO ()
-main = css example >>= T.putStrLn
+main = css wordlist >>= T.putStrLn
 
 wordlist :: Monad m => NiagraT m ()
 wordlist = do
@@ -42,6 +42,13 @@ wordlist = do
       cursor     "pointer"
       content    "\\00D7"
       marginLeft (px 5)
+  
+  media' "screen" $ do
+    body ? do
+      display "inline-block"
+      
+  fontFace $ do
+    "src" .= "url('/assets/fonts/oxygen/Oxygen-Bold.woff2')"
 
 example :: NiagraT IO ()
 example = do
@@ -80,6 +87,6 @@ example = do
   fontFace $ do
     "src" .= "url('/assets/fonts/oxygen/Oxygen-Bold.woff2')"
 
-  media "screen" $ do
+  media' "screen" $ do
     body ? do
       "background-color" .= "lightgreen"
