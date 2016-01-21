@@ -45,8 +45,8 @@ newtype AccumulatorT s i m a = AccumulatorT {
 }
 
 instance (Functor m) => Functor (AccumulatorT s i m) where
-  fmap f m = AccumulatorT $ \fin fi sq i ->
-    fmap (\(a, sq', i') -> (f a, sq', i')) $ runAccumulatorT m fin fi sq i
+  fmap f m = AccumulatorT $ \a b c d -> fmap f' $ runAccumulatorT m a b c d
+    where f' (a, sq', i') = (f a, sq', i')
 
 instance (Functor m, Monad m) => Applicative (AccumulatorT s i m) where
   pure a = AccumulatorT $ \fin fi sq i -> return (a, sq, i)
