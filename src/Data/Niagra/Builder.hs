@@ -51,9 +51,8 @@ import qualified Data.Sequence as S
 
 -- TODO:
 -- * Faster string-centric routine
+-- * Define Builder in terms of AccumulatorT
 
--- |Wrapper around a function that applies changes
--- to a sequence of mutable buffers in 'ST'.
 data Builder = EmptyBuilder | Builder {
   runBuilder :: forall s. ((Buffer s, Seq Text) -> ST s (Buffer s, Seq Text))
              -> (Buffer s, Seq Text)
@@ -83,6 +82,7 @@ isEmpty EmptyBuilder = True
 isEmpty _ = False
 
 -- | O(1) create an empty 'Builder'
+{-# INLINE empty #-}
 empty :: Builder
 empty = EmptyBuilder
 

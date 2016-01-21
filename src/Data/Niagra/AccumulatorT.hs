@@ -33,7 +33,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 
-import Data.Sequence as Sq
+import Data.Sequence
 
 -- | AccumulatorT type.
 newtype AccumulatorT s i m a = AccumulatorT {
@@ -47,7 +47,6 @@ newtype AccumulatorT s i m a = AccumulatorT {
 instance (Functor m) => Functor (AccumulatorT s i m) where
   fmap f m = AccumulatorT $ \fin fi sq i ->
     fmap (\(a, sq', i') -> (f a, sq', i')) $ runAccumulatorT m fin fi sq i
-  -- fmap f m = AccumulatorT (fmap (\(a, sq, i) -> (f a, sq, i)) . runAccumulatorT m)
 
 instance (Functor m, Monad m) => Applicative (AccumulatorT s i m) where
   pure a = AccumulatorT $ \fin fi sq i -> return (a, sq, i)
@@ -56,9 +55,8 @@ instance (Functor m, Monad m) => Applicative (AccumulatorT s i m) where
 instance (Monad m) => Monad (AccumulatorT s i m) where
   fail msg = AccumulatorT $ \_ _ _ _ -> fail msg
   m >>= k = AccumulatorT $ \fin fi sq i -> do
-    ~(a, sq', i')  <- runAccumulatorT m fin fi sq i
-    ~(b, sq'',i'') <- runAccumulatorT (k a) fin fi sq' i'
-    return (b, sq'', i'')
+    ~(a, sq', i') <- runAccumulatorT m fin fi sq i
+    runAccumulatorT (k a) fin fi sq' i'
 
 instance MonadTrans (AccumulatorT s i) where
   lift m = AccumulatorT $ \_ _ sq i -> m >>= return . (,sq,i)
