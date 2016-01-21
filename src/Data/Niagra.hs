@@ -27,7 +27,8 @@ module Data.Niagra
   module Data.Niagra.Selector.Combinators,
   module Data.Niagra.Properties,
   module Data.Niagra.Value,
-  module Data.Niagra.Builder
+  module Data.Niagra.Builder,
+  module Data.Niagra.Builder.Numbers
 )
 where
 
@@ -41,6 +42,7 @@ import Data.Niagra.Selector.Combinators
 import Data.Niagra.Properties
 import Data.Niagra.Value
 import Data.Niagra.Builder
+import Data.Niagra.Builder.Numbers
 
 {-
 TODO (in no particular order)

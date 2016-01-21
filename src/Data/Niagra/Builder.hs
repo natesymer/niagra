@@ -54,13 +54,14 @@ import qualified Data.Sequence as S
 
 -- |Wrapper around a function that applies changes
 -- to a sequence of mutable buffers in 'ST'.
-data Builder = Builder {
+data Builder = EmptyBuilder | Builder {
   runBuilder :: forall s. ((Buffer s, Seq Text) -> ST s (Buffer s, Seq Text))
              -> (Buffer s, Seq Text)
              -> ST s (Buffer s, Seq Text)
 }
 
 evalBuilder :: Builder -> ST s [Text]
+evalBuilder EmptyBuilder = return []
 evalBuilder (Builder f) = do
   (h,t) <- unsafeNewBuffer >>= f return . (,S.empty)
   flushed <- bufferToText h
@@ -71,11 +72,19 @@ instance Monoid Builder where
   mappend = appendBuilder
   
 instance STR.IsString Builder where
-  fromString = fromString
+  -- creating a builder from a lazy 'Text' is faster
+  -- than creating one from a 'String'
+  fromString [c] = singleton c
+  fromString s = fromLazyText $ TL.pack s
+  
+-- | O(1) determine if a builder is empty.
+isEmpty :: Builder -> Bool
+isEmpty EmptyBuilder = True
+isEmpty _ = False
 
 -- | O(1) create an empty 'Builder'
 empty :: Builder
-empty = Builder $ \f v -> f v
+empty = EmptyBuilder
 
 -- biggest overhead comes from the binding operator
 -- | O(1) create a 'Builder' from a single 'Char'.
@@ -98,6 +107,8 @@ fromLazyText t = Builder $ \f tup -> foldlM (flip appendVec) tup (TL.toChunks t)
 
 -- | O(1) append two 'Builder's.
 appendBuilder :: Builder -> Builder -> Builder
+appendBuilder EmptyBuilder a = a
+appendBuilder a EmptyBuilder = a
 appendBuilder (Builder a) (Builder b) = Builder $ a . b
   
 -- | O(n) Turn a 'Builder' into a 'Text'. While 'singleton', 'fromString',

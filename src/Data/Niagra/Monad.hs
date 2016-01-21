@@ -36,6 +36,8 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 
 -- TODO: make accumulated state be a Builder.
+-- Builders should be able to distinguish between empty & full builders in 
+-- O(1) time without building anything.
 
 newtype NiagraT m a = NiagraT (AccumulatorT Block Block m a)
   deriving (Functor,Applicative,Monad,MonadIO)

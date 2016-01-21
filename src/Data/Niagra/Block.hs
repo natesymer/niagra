@@ -30,9 +30,12 @@ data Block = Block Selector Builder
 
 -- |Add a declaration to a 'Block'.
 appendDeclaration :: Block -> Text -> Builder -> Block
+appendDeclaration (Block s EmptyBuilder) k v = Block s b'
+  where b' = fromText k <> singleton ':' <> v
 appendDeclaration (Block s b) k v = Block s b'
-  where b' = b <> fromText k <> singleton ':' <> v <> singleton ';'
+  where b' = b <> singleton ';' <> fromText k <> singleton ':' <> v
   
 -- |Build a block
 buildBlock :: Block -> Builder
+buildBlock (Block s EmptyBuilder) = EmptyBuilder
 buildBlock (Block s b) = buildSelector s <> singleton '{' <> b <> singleton '}'
