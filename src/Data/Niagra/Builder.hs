@@ -51,20 +51,18 @@ import qualified Data.Text.Lazy as TL
 import qualified Data.String as STR
 
 import Data.Text.Internal (Text(..))
-import Data.Text.Array (Array(..))
 
--- TODO:
--- * Faster string-centric routine
-
+-- A type alias for the 'AccumulatorT' used to accumulate
+-- builder strings
 type BuilderAccum s a = AccumulatorT Text (Buffer s) (ST s) a
 
 -- |Builder data structure. Builders accumulate 'Char's &
 -- 'Text's.
 data Builder = EmptyBuilder | Builder (forall s. BuilderAccum s ())
 
-evalBuilder :: Builder -> ST s [Text]
-evalBuilder EmptyBuilder = return []
-evalBuilder (Builder acc) = do
+runBuilder :: Builder -> ST s [Text]
+runBuilder EmptyBuilder = return []
+runBuilder (Builder acc) = do
   (_,sq,_) <- run
   return $ toList sq
   where
@@ -105,7 +103,6 @@ singleton c = Builder $ appendChar c
 -- | O(1) create a 'Builder' from a 'String'.
 fromString :: String -> Builder
 fromString [] = empty
-fromString [x] = singleton x
 fromString s = Builder $ mapM_ appendChar s
 
 -- | O(1) create a 'Builder' from a 'Text'.
@@ -124,14 +121,14 @@ appendBuilder (Builder a) (Builder b) = Builder $ a >> b
   
 -- | O(n) Turn a 'Builder' into a 'Text'. While 'singleton', 'fromString',
 -- 'fromText', 'empty', and 'appendBuilder' don't do any direct processing,
--- /the function they construct gets evaluated here/. @n@ is the length of
+-- /the monadic action they construct gets evaluated here/. @n@ is the length of
 -- the accumulated data to be built into a 'Text'
 toText :: Builder -> Text
 toText = TL.toStrict . toLazyText 
 
 -- |Lazy version of 'toText'.
 toLazyText :: Builder -> TL.Text
-toLazyText b = runST $ TL.fromChunks <$> evalBuilder b
+toLazyText b = runST $ TL.fromChunks <$> runBuilder b
 
 {-
 
@@ -144,7 +141,7 @@ inside 'AccumulatorT' to do the heavy lifting
 -- |Safely append a Word16 to the incomplete Buffer.
 builderAppendWord16 :: Word16 -> BuilderAccum s ()
 builderAppendWord16 w = do
-  (Buffer ary len remain) <- getIncomplete
+  Buffer ary len remain <- getIncomplete
   if remain == 0
     then do
       complete
@@ -164,15 +161,11 @@ appendChar = either writeSingle writeDouble . charToWord16
 
 -- |Append a 'Text' to the end of a Builder's accumulation.
 appendText :: Text -> BuilderAccum s ()
-appendText t@(Text ta@(Array tbuf) to tl) = do
-  Buffer a l remain <- getIncomplete
-  let copy copyLen = do
-        lift $ copyBA a l tbuf to copyLen
-        setIncomplete $ Buffer a (l+copyLen) (remain-copyLen)
-  
+appendText t@(Text _ _ tl) = do
+  Buffer _ _ remain <- getIncomplete
   if tl > remain
     then do -- fill the buffer with as much text as possible.
-      copy remain
+      incomplete (bufferAppendText t remain)
       complete
-      appendText $ Text ta (to+remain) (tl-remain)
-    else copy tl
+      appendText $ offsetText t remain
+    else incomplete (bufferAppendText t tl)

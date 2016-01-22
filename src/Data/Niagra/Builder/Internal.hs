@@ -7,8 +7,9 @@ module Data.Niagra.Builder.Internal
   shrinkBuffer,
   freezeBuffer,
   unsafeNewBuffer,
-  bufferEmpty,
-  charToWord16
+  charToWord16,
+  bufferAppendText,
+  offsetText
 )
 where
 
@@ -64,12 +65,8 @@ freezeBuffer (Buffer a l _) = ST $ \s -> case unsafeFreezeByteArray# a s of
 unsafeNewBuffer :: Int -> ST s (Buffer s)
 unsafeNewBuffer i@(I# aryLen) = ST $ \s -> case newByteArray# (aryLen *# 2#) s of
   (# s', a #) -> (# s', Buffer a 0 i #)
-  
-bufferEmpty :: Buffer s -> Bool
-bufferEmpty (Buffer _ 0 _) = True
-bufferEmpty _ = False
 
-{- Conversions and higher level operations -}
+{- Conversions -}
 
 -- |Convert a char into either a 'Word16' or a pair of 'Word16's
 {-# INLINE charToWord16 #-}
@@ -82,3 +79,14 @@ charToWord16 c
         lo = (m `uncheckedIShiftRA64#` 10#) +# 0xD800#
         hi = (m `andI#` 0x3FF#) +# 0xDC00#
         intToWord16 i = W16# (int2Word# i)
+        
+{- Text operations -}
+
+bufferAppendText :: Text -> Int -> Buffer s -> ST s (Buffer s)
+bufferAppendText (Text ta@(Array tbuf) to tl) copyLen (Buffer a l remain) = do
+  copyBA a l tbuf to copyLen
+  return $ Buffer a (l+copyLen) (remain-copyLen)
+  
+{-# INLINE offsetText #-}
+offsetText :: Text -> Int -> Text
+offsetText (Text a o l) off = Text a (o+off) (l-off)

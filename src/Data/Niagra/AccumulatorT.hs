@@ -73,8 +73,8 @@ complete = AccumulatorT $ \fin fi sq i -> do
   return ((),sq |> accum,incomp)
 
 -- |Apply a function to the incomplete state.
-incomplete :: (Monad m) => (i -> i) -> AccumulatorT s i m ()
-incomplete f = AccumulatorT $ \_ _ sq i -> return ((), sq, f i)
+incomplete :: (Monad m) => (i -> m i) -> AccumulatorT s i m ()
+incomplete f = AccumulatorT $ \_ _ sq i -> ((),sq,) <$> f i
 
 -- |Get the incomplete state.
 getIncomplete :: (Monad m) => AccumulatorT s i m i

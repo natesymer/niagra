@@ -60,11 +60,11 @@ rootScope sel act = NiagraT $ (lift $ runNiagraT act) >>= add
 childScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
 childScope sel (NiagraT acc) = NiagraT $ do
   parent@(Block parentSel _) <- getIncomplete
-  setIncomplete $ Block (parentSel <||> sel) mempty -- (parentSel <||> sel,S.empty)
+  setIncomplete $ Block (parentSel <||> sel) mempty
   acc
   complete
   setIncomplete parent
 
 -- |Add a declaration to the 'NiagraT' state.
 addDeclaration :: (Monad m) => Text -> Builder -> NiagraT m ()
-addDeclaration k v = NiagraT $ incomplete $ \b -> appendDeclaration b k v
+addDeclaration k v = NiagraT $ incomplete $ \b -> return $ appendDeclaration b k v
