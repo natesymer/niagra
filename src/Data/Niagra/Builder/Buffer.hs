@@ -1,5 +1,20 @@
+{-|
+Module      : Data.Niagra.Builder.Buffer
+Description : 'Buffer' data structure for 'Builder'.
+Copyright   : (c) Nathaniel Symer, 2015
+License     : MIT
+Maintainer  : nate@symer.io
+Stability   : experimental
+Portability : POSIX
+
+Provides a data structure for storing bytes
+from 'Char's and strict 'Text's. Can easily be
+frozen into a strict 'Text'.
+
+-}
+
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, TupleSections #-}
-module Data.Niagra.Builder.Internal
+module Data.Niagra.Builder.Buffer
 (
   Buffer(..),
   -- * Generic Low-Level Operations
@@ -7,7 +22,7 @@ module Data.Niagra.Builder.Internal
   -- * 'Buffer' Operations
   shrinkBuffer,
   freezeBuffer,
-  unsafeNewBuffer,
+  newBuffer,
   bufferAppendText,
   bufferAppendWord16,
   -- * 'Text' & 'Char' Operations
@@ -22,7 +37,7 @@ import GHC.ST
 import GHC.Word (Word16(..))
 
 import Data.Char
-import Data.Text.Internal (Text(..))
+import Data.Text.Internal (Text(..),safe)
 import Data.Text.Array (Array(..))
 
 -- |Buffer used when evaluating builders
@@ -32,7 +47,7 @@ data Buffer s = Buffer {
   bufferRemaining :: !Int -- ^ remaining number of 'Word16's the buffer can accommodate
 }
 
-{- Low level ST-based actions -}
+{- Generic Low-Level Operations -}
 
 -- |Essentially a memcpy() modified to work in terms of 'Word16's.
 copyWord16Array :: MutableByteArray# s -- ^ Destination
@@ -66,9 +81,9 @@ freezeBuffer :: Buffer s -> ST s Text
 freezeBuffer (Buffer a l _) = ST $ \s -> case unsafeFreezeByteArray# a s of
   (# s', ary #) -> (# s', Text (Array ary) 0 l #)
 
--- |Create a new *unpinned* buffer.
-unsafeNewBuffer :: Int -> ST s (Buffer s)
-unsafeNewBuffer i@(I# aryLen) = ST $ \s -> case newByteArray# (aryLen *# 2#) s of
+-- |Create a new *unpinned* buffer inside the GC.
+newBuffer :: Int -> ST s (Buffer s)
+newBuffer i@(I# aryLen) = ST $ \s -> case newByteArray# (aryLen *# 2#) s of
   (# s', a #) -> (# s', Buffer a 0 i #)
   
 -- |Append a strict 'Text' to a 'Buffer'.
@@ -85,7 +100,7 @@ bufferAppendWord16 (Buffer a l@(I# l#) r) (W16# w) = ST $ \s ->
     Buffer a (l+1) (r-1)
   #)
 
-{- Conversions -}
+{- Text & Char operations -}
 
 -- |Convert a char into either a 'Word16' or a pair of 'Word16's
 {-# INLINE charToWord16 #-}
@@ -93,14 +108,14 @@ charToWord16 :: Char -> Either Word16 (Word16,Word16)
 charToWord16 c
   | o < 0x10000 = Left $ intToWord16 n
   | otherwise = Right $ (intToWord16 lo, intToWord16 hi)
-  where !o@(I# n) = ord c
+  where !o@(I# n) = ord $ safe c
         m = n -# 0x10000#
         lo = (m `uncheckedIShiftRA64#` 10#) +# 0xD800#
         hi = (m `andI#` 0x3FF#) +# 0xDC00#
         intToWord16 i = W16# (int2Word# i)
 
-{- Text operations -}
-  
 {-# INLINE offsetText #-}
+-- |Remove 'Word16's off the front of a strict 'text'
+-- without having to copy it.
 offsetText :: Text -> Int -> Text
 offsetText (Text a o l) off = Text a (o+off) (l-off)

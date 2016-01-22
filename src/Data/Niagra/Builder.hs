@@ -25,12 +25,11 @@ module Data.Niagra.Builder
 )
 where
 
-import Data.Niagra.Builder.Internal
+import Data.Niagra.Builder.Buffer
 import Data.Niagra.AccumulatorT
 
 import Control.Monad
 import Control.Monad.ST
-import Control.Monad.Trans.Class
 
 import Data.Word
 import Data.Foldable
@@ -56,12 +55,12 @@ runBuilder (Builder acc) = do
   return $ toList sq
   where
     run = mkIncomp >>= runAccumulatorT acc' freezeBuffer mkIncomp S.empty
-    mkIncomp = unsafeNewBuffer 128
+    mkIncomp = newBuffer 128
     acc' = do
       acc
-      b@(Buffer _ l _) <- getIncomplete
+      l <- bufferLength <$> getIncomplete
       when (l > 0) $ do
-        lift $ shrinkBuffer b
+        incomplete shrinkBuffer
         complete
 
 instance Monoid Builder where
@@ -130,7 +129,7 @@ inside 'AccumulatorT' to do the heavy lifting
 -- |Safely append a Word16 to the incomplete Buffer.
 builderAppendWord16 :: Word16 -> BuilderAccum s ()
 builderAppendWord16 w = do
-  Buffer _ _ remain <- getIncomplete
+  remain <- bufferRemaining <$> getIncomplete
   if remain == 0
     then do
       complete
@@ -149,10 +148,10 @@ appendChar = either writeSingle writeDouble . charToWord16
 -- |Append a 'Text' to the end of a Builder's accumulation.
 appendText :: Text -> BuilderAccum s ()
 appendText t@(Text _ _ tl) = do
-  Buffer _ _ remain <- getIncomplete
-  if tl > remain
-    then do -- fill the buffer with as much text as possible.
+  remain <- bufferRemaining <$> getIncomplete
+  if remain > tl
+    then incomplete (bufferAppendText t tl)
+    else do
       incomplete (bufferAppendText t remain)
       complete
       appendText $ offsetText t remain
-    else incomplete (bufferAppendText t tl)
