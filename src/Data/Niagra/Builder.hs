@@ -37,34 +37,45 @@ module Data.Niagra.Builder
 where
 
 import Data.Niagra.Builder.Internal
+import Data.Niagra.AccumulatorT
 
+import Control.Monad
 import Control.Monad.ST
+import Control.Monad.Trans.Class
 
+import Data.Word
+import Data.Foldable
+import qualified Data.Sequence as S (empty)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
-
-import Data.Foldable
 import qualified Data.String as STR
 
-import Data.Sequence (Seq(..), (|>))
-import qualified Data.Sequence as S
+import Data.Text.Internal (Text(..))
+import Data.Text.Array (Array(..))
 
 -- TODO:
 -- * Faster string-centric routine
--- * Define Builder in terms of AccumulatorT
 
-data Builder = EmptyBuilder | Builder {
-  runBuilder :: forall s. ((Buffer s, Seq Text) -> ST s (Buffer s, Seq Text))
-             -> (Buffer s, Seq Text)
-             -> ST s (Buffer s, Seq Text)
-}
+type BuilderAccum s a = AccumulatorT Text (Buffer s) (ST s) a
+
+-- |Builder data structure. Builders accumulate 'Char's &
+-- 'Text's.
+data Builder = EmptyBuilder | Builder (forall s. BuilderAccum s ())
 
 evalBuilder :: Builder -> ST s [Text]
 evalBuilder EmptyBuilder = return []
-evalBuilder (Builder f) = do
-  (h,t) <- unsafeNewBuffer >>= f return . (,S.empty)
-  flushed <- bufferToText h
-  return $ toList $ t |> flushed
+evalBuilder (Builder acc) = do
+  (_,sq,_) <- run
+  return $ toList sq
+  where
+    run = mkIncomp >>= runAccumulatorT acc' freezeBuffer mkIncomp S.empty
+    mkIncomp = unsafeNewBuffer 128
+    acc' = do
+      acc
+      b@(Buffer _ l _) <- getIncomplete
+      when (l > 0) $ do
+        lift $ shrinkBuffer b
+        complete
 
 instance Monoid Builder where
   mempty  = empty
@@ -89,27 +100,27 @@ empty = EmptyBuilder
 -- biggest overhead comes from the binding operator
 -- | O(1) create a 'Builder' from a single 'Char'.
 singleton :: Char -> Builder
-singleton c = Builder $ \f tup -> snocVec c tup >>= f
+singleton c = Builder $ appendChar c
 
 -- | O(1) create a 'Builder' from a 'String'.
 fromString :: String -> Builder
 fromString [] = empty
 fromString [x] = singleton x
-fromString s = Builder $ \f tup -> foldlM (flip snocVec) tup s >>= f
+fromString s = Builder $ mapM_ appendChar s
 
 -- | O(1) create a 'Builder' from a 'Text'.
 fromText :: Text -> Builder
-fromText t = Builder $ \f tup -> appendVec t tup >>= f
+fromText t = Builder $ appendText t
 
 -- | O(1) create a 'Builder' from a lazy 'Text'.
 fromLazyText :: TL.Text -> Builder
-fromLazyText t = Builder $ \f tup -> foldlM (flip appendVec) tup (TL.toChunks t) >>= f
+fromLazyText tl = Builder $ mapM_ appendText $ TL.toChunks tl
 
 -- | O(1) append two 'Builder's.
 appendBuilder :: Builder -> Builder -> Builder
 appendBuilder EmptyBuilder a = a
 appendBuilder a EmptyBuilder = a
-appendBuilder (Builder a) (Builder b) = Builder $ a . b
+appendBuilder (Builder a) (Builder b) = Builder $ a >> b
   
 -- | O(n) Turn a 'Builder' into a 'Text'. While 'singleton', 'fromString',
 -- 'fromText', 'empty', and 'appendBuilder' don't do any direct processing,
@@ -121,3 +132,47 @@ toText = TL.toStrict . toLazyText
 -- |Lazy version of 'toText'.
 toLazyText :: Builder -> TL.Text
 toLazyText b = runST $ TL.fromChunks <$> evalBuilder b
+
+{-
+
+these functions use the primive functions
+inside 'AccumulatorT' to do the heavy lifting
+(no pun intended) behind 'Builder'.
+
+-}
+
+-- |Safely append a Word16 to the incomplete Buffer.
+builderAppendWord16 :: Word16 -> BuilderAccum s ()
+builderAppendWord16 w = do
+  (Buffer ary len remain) <- getIncomplete
+  if remain == 0
+    then do
+      complete
+      builderAppendWord16 w
+    else do
+      lift $ writeWord16 ary len w
+      setIncomplete $ Buffer ary (len+1) (remain-1)
+
+-- |Append a char to the end of a Builder's accumulation.
+appendChar :: Char -> BuilderAccum s ()
+appendChar = either writeSingle writeDouble . charToWord16
+  where
+    writeSingle = builderAppendWord16
+    writeDouble (lo,hi) = do
+      builderAppendWord16 lo
+      builderAppendWord16 hi
+
+-- |Append a 'Text' to the end of a Builder's accumulation.
+appendText :: Text -> BuilderAccum s ()
+appendText t@(Text ta@(Array tbuf) to tl) = do
+  Buffer a l remain <- getIncomplete
+  let copy copyLen = do
+        lift $ copyBA a l tbuf to copyLen
+        setIncomplete $ Buffer a (l+copyLen) (remain-copyLen)
+  
+  if tl > remain
+    then do -- fill the buffer with as much text as possible.
+      copy remain
+      complete
+      appendText $ Text ta (to+remain) (tl-remain)
+    else copy tl

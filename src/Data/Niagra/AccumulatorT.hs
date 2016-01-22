@@ -25,7 +25,8 @@ module Data.Niagra.AccumulatorT
   getIncomplete,
   setIncomplete,
   getAccumulations,
-  addAccumulations
+  addAccumulations,
+  accumulate
 )
 where
 
@@ -37,8 +38,8 @@ import Data.Sequence
 
 -- | AccumulatorT type.
 newtype AccumulatorT s i m a = AccumulatorT {
-  runAccumulatorT :: (i -> s) -- ^ function to turn the incomplete state into an accumulation
-                  -> i -- ^ empty/fresh incomplete state
+  runAccumulatorT :: (i -> m s) -- ^ function to turn the incomplete state into an accumulation
+                  -> m i -- ^ action to create a new incomplete state
                   -> Seq s -- ^ accumulations
                   -> i -- ^ current incomplete state
                   -> m (a, Seq s, i) -- ^ result of accumulation
@@ -55,7 +56,7 @@ instance (Functor m, Monad m) => Applicative (AccumulatorT s i m) where
 instance (Monad m) => Monad (AccumulatorT s i m) where
   fail msg = AccumulatorT $ \_ _ _ _ -> fail msg
   m >>= k = AccumulatorT $ \fin fi sq i -> do
-    ~(a, sq', i') <- runAccumulatorT m fin fi sq i
+    (a, sq', i') <- runAccumulatorT m fin fi sq i
     runAccumulatorT (k a) fin fi sq' i'
 
 instance MonadTrans (AccumulatorT s i) where
@@ -66,7 +67,10 @@ instance (MonadIO m) => MonadIO (AccumulatorT s i m) where
     
 -- |Completes the incomplete state and appends it to state collection.
 complete :: (Monad m) => AccumulatorT s i m ()
-complete = AccumulatorT $ \fin fi sq i -> return ((), sq |> (fin i), fi)
+complete = AccumulatorT $ \fin fi sq i -> do
+  incomp <- fi
+  accum <- fin i
+  return ((),sq |> accum,incomp)
 
 -- |Apply a function to the incomplete state.
 incomplete :: (Monad m) => (i -> i) -> AccumulatorT s i m ()
@@ -86,3 +90,6 @@ getAccumulations = AccumulatorT $ \_ _ sq i -> return (sq, sq, i)
 
 addAccumulations :: (Monad m) => Seq s -> AccumulatorT s i m ()
 addAccumulations acc = AccumulatorT $ \_ _ sq i -> return ((),sq >< acc, i)
+
+accumulate :: (Monad m) => s -> AccumulatorT s i m ()
+accumulate v = AccumulatorT $ \_ _ sq i -> return ((),sq |> v, i)

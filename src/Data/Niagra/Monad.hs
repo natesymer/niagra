@@ -44,9 +44,10 @@ newtype NiagraT m a = NiagraT (AccumulatorT Block Block m a)
 
 -- |Evaluate a NiagraT monadic action.
 runNiagraT :: (Monad m) => NiagraT m () -> m (Seq Block)
-runNiagraT (NiagraT acc) = snd' <$> runAccumulatorT acc id emptyState S.empty emptyState
+runNiagraT (NiagraT acc) = snd' <$> run
   where snd' (_,v,_) = v
         emptyState = Block Null mempty -- (Null,S.empty)
+        run = runAccumulatorT acc return (return emptyState) S.empty emptyState
 
 -- |Start a root scope.
 rootScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
