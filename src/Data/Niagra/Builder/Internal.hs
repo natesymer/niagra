@@ -2,13 +2,16 @@
 module Data.Niagra.Builder.Internal
 (
   Buffer(..),
-  copyBA,
-  writeWord16,
+  -- * Generic Low-Level Operations
+  copyWord16Array,
+  -- * 'Buffer' Operations
   shrinkBuffer,
   freezeBuffer,
   unsafeNewBuffer,
-  charToWord16,
   bufferAppendText,
+  bufferAppendWord16,
+  -- * 'Text' & 'Char' Operations
+  charToWord16,
   offsetText
 )
 where
@@ -31,29 +34,31 @@ data Buffer s = Buffer {
 
 {- Low level ST-based actions -}
 
-copyBA :: MutableByteArray# s -- ^ Destination
-       -> Int                 -- ^ Destination offset (in 'Word16's)
-       -> ByteArray#          -- ^ Source
-       -> Int                 -- ^ Source offset (in 'Word16's)
-       -> Int                 -- ^ number of 'Word16's to copy
-       -> ST s ()
-copyBA dest (I# doff) src (I# soff) (I# n) = ST $ \s ->
-  (# copyByteArray# src (soff *# 2#)
-                    dest (doff *# 2#)
-                    (n *# 2#)
-                    s,
-     ()
+-- |Essentially a memcpy() modified to work in terms of 'Word16's.
+copyWord16Array :: MutableByteArray# s -- ^ Destination
+                -> Int                 -- ^ Destination offset (in 'Word16's)
+                -> ByteArray#          -- ^ Source
+                -> Int                 -- ^ Source offset (in 'Word16's)
+                -> Int                 -- ^ number of 'Word16's to copy
+                -> ST s ()
+copyWord16Array dest (I# doff) src (I# soff) (I# n) = ST $ \s ->
+  (# 
+    copyByteArray# src (soff *# 2#)
+                   dest (doff *# 2#)
+                   (n *# 2#)
+                   s,
+    ()
   #)
 
-writeWord16 :: MutableByteArray# s -> Int -> Word16 -> ST s ()
-writeWord16 marr# (I# i#) (W16# w#) = ST $ \s -> (# (writeWord16Array# marr# i# w# s), () #)
+{- Buffer Operations -}
 
 -- |Shrink a buffer to its length.
 shrinkBuffer :: Buffer s -> ST s (Buffer s)
 shrinkBuffer b@(Buffer _ _ 0) = return b
-shrinkBuffer (Buffer a (I# l#) _) = ST $ \s -> (#
-  (shrinkMutableByteArray# a (l# *# 2#) s),
-  (Buffer a (I# l#) (I# l#))
+shrinkBuffer (Buffer a (I# l#) _) = ST $ \s ->
+  (#
+  shrinkMutableByteArray# a (l# *# 2#) s,
+  Buffer a (I# l#) (I# l#)
   #)
 
 -- |Freeze a buffer into a strict 'Text'.
@@ -65,6 +70,20 @@ freezeBuffer (Buffer a l _) = ST $ \s -> case unsafeFreezeByteArray# a s of
 unsafeNewBuffer :: Int -> ST s (Buffer s)
 unsafeNewBuffer i@(I# aryLen) = ST $ \s -> case newByteArray# (aryLen *# 2#) s of
   (# s', a #) -> (# s', Buffer a 0 i #)
+  
+-- |Append a strict 'Text' to a 'Buffer'.
+bufferAppendText :: Text -> Int -> Buffer s -> ST s (Buffer s)
+bufferAppendText (Text (Array tbuf) to tl) copyLen (Buffer a l remain) = do
+  copyWord16Array a l tbuf to copyLen
+  return $ Buffer a (l+copyLen) (remain-copyLen)
+  
+-- |Append a 'Word16' to a 'Buffer'.
+bufferAppendWord16 :: Buffer s -> Word16 -> ST s (Buffer s)
+bufferAppendWord16 (Buffer a l@(I# l#) r) (W16# w) = ST $ \s ->
+  (#
+    writeWord16Array# a l# w s,
+    Buffer a (l+1) (r-1)
+  #)
 
 {- Conversions -}
 
@@ -79,13 +98,8 @@ charToWord16 c
         lo = (m `uncheckedIShiftRA64#` 10#) +# 0xD800#
         hi = (m `andI#` 0x3FF#) +# 0xDC00#
         intToWord16 i = W16# (int2Word# i)
-        
-{- Text operations -}
 
-bufferAppendText :: Text -> Int -> Buffer s -> ST s (Buffer s)
-bufferAppendText (Text ta@(Array tbuf) to tl) copyLen (Buffer a l remain) = do
-  copyBA a l tbuf to copyLen
-  return $ Buffer a (l+copyLen) (remain-copyLen)
+{- Text operations -}
   
 {-# INLINE offsetText #-}
 offsetText :: Text -> Int -> Text

@@ -7,19 +7,8 @@ Maintainer  : nate@symer.io
 Stability   : experimental
 Portability : POSIX
 
-Lazy/Eager 'Text' builder built on top of
-text technologies using better data structures
-than the original 'Data.Text.Lazy.Builder'.
-
-It uses the 'Seq' data structure to hold chunks
-rather than a List, because 'Seq's have O(1)
-access to either end of the structure. This is
-crucial for accumulating chunks in as little time
-possible.
-
-Furthermore, this builder only copies a given sequence
-of bytes at most once: from a 'Text','String', or 'Char'
-to a buffer.
+'Text' builder based on 'AccumulatorT'. Roughly
+based on 'Data.Text.Lazy.Builder'.
 
 -}
 
@@ -141,14 +130,12 @@ inside 'AccumulatorT' to do the heavy lifting
 -- |Safely append a Word16 to the incomplete Buffer.
 builderAppendWord16 :: Word16 -> BuilderAccum s ()
 builderAppendWord16 w = do
-  Buffer ary len remain <- getIncomplete
+  Buffer _ _ remain <- getIncomplete
   if remain == 0
     then do
       complete
       builderAppendWord16 w
-    else do
-      lift $ writeWord16 ary len w
-      setIncomplete $ Buffer ary (len+1) (remain-1)
+    else incomplete $ flip bufferAppendWord16 w
 
 -- |Append a char to the end of a Builder's accumulation.
 appendChar :: Char -> BuilderAccum s ()
