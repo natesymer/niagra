@@ -33,7 +33,6 @@ import Control.Monad.ST
 
 import Data.Word
 import Data.Foldable
-import qualified Data.Sequence as S (empty)
 import Data.Text (Text)
 import qualified Data.Text.Lazy as TL
 import qualified Data.String as STR
@@ -54,7 +53,7 @@ runBuilder (Builder acc) = do
   (_,sq,_) <- run
   return $ toList sq
   where
-    run = mkIncomp >>= runAccumulatorT acc' freezeBuffer mkIncomp S.empty
+    run = evalAccumulatorT acc' freezeBuffer mkIncomp-- runAccumulatorT acc' freezeBuffer mkIncomp S.empty
     mkIncomp = newBuffer 128
     acc' = do
       acc

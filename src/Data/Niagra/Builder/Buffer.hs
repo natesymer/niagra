@@ -17,8 +17,6 @@ frozen into a strict 'Text'.
 module Data.Niagra.Builder.Buffer
 (
   Buffer(..),
-  -- * Generic Low-Level Operations
-  copyWord16Array,
   -- * 'Buffer' Operations
   shrinkBuffer,
   freezeBuffer,
@@ -47,24 +45,6 @@ data Buffer s = Buffer {
   bufferRemaining :: !Int -- ^ remaining number of 'Word16's the buffer can accommodate
 }
 
-{- Generic Low-Level Operations -}
-
--- |Essentially a memcpy() modified to work in terms of 'Word16's.
-copyWord16Array :: MutableByteArray# s -- ^ Destination
-                -> Int                 -- ^ Destination offset (in 'Word16's)
-                -> ByteArray#          -- ^ Source
-                -> Int                 -- ^ Source offset (in 'Word16's)
-                -> Int                 -- ^ number of 'Word16's to copy
-                -> ST s ()
-copyWord16Array dest (I# doff) src (I# soff) (I# n) = ST $ \s ->
-  (# 
-    copyByteArray# src (soff *# 2#)
-                   dest (doff *# 2#)
-                   (n *# 2#)
-                   s,
-    ()
-  #)
-
 {- Buffer Operations -}
 
 -- |Shrink a buffer to its length.
@@ -88,9 +68,16 @@ newBuffer i@(I# aryLen) = ST $ \s -> case newByteArray# (aryLen *# 2#) s of
   
 -- |Append a strict 'Text' to a 'Buffer'.
 bufferAppendText :: Text -> Int -> Buffer s -> ST s (Buffer s)
-bufferAppendText (Text (Array tbuf) to tl) copyLen (Buffer a l remain) = do
-  copyWord16Array a l tbuf to copyLen
-  return $ Buffer a (l+copyLen) (remain-copyLen)
+bufferAppendText (Text (Array tbuf) (I# to#) _)
+                 copyLen@(I# copyLen#)
+                 (Buffer a l@(I# l#) remain) = ST $ \s ->
+  (# 
+    copyByteArray# tbuf (to# *# 2#)
+                   a (l# *# 2#)
+                   (copyLen# *# 2#)
+                   s,
+    Buffer a (l+copyLen) (remain-copyLen)
+  #)
   
 -- |Append a 'Word16' to a 'Buffer'.
 bufferAppendWord16 :: Buffer s -> Word16 -> ST s (Buffer s)
@@ -103,7 +90,6 @@ bufferAppendWord16 (Buffer a l@(I# l#) r) (W16# w) = ST $ \s ->
 {- Text & Char operations -}
 
 -- |Convert a char into either a 'Word16' or a pair of 'Word16's
-{-# INLINE charToWord16 #-}
 charToWord16 :: Char -> Either Word16 (Word16,Word16)
 charToWord16 c
   | o < 0x10000 = Left $ intToWord16 n
@@ -114,8 +100,8 @@ charToWord16 c
         hi = (m `andI#` 0x3FF#) +# 0xDC00#
         intToWord16 i = W16# (int2Word# i)
 
-{-# INLINE offsetText #-}
 -- |Remove 'Word16's off the front of a strict 'text'
 -- without having to copy it.
+{-# INLINE offsetText #-}
 offsetText :: Text -> Int -> Text
 offsetText (Text a o l) off = Text a (o+off) (l-off)

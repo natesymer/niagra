@@ -13,7 +13,6 @@ module Data.Niagra.Properties.Background
 where
   
 import Data.Niagra.Monad
-import Data.Niagra.DSL
 import Data.Niagra.Value
 
 import Data.Niagra.Builder

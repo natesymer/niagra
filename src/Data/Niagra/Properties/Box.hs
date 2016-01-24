@@ -36,7 +36,6 @@ module Data.Niagra.Properties.Box
 where
 
 import Data.Niagra.Monad
-import Data.Niagra.DSL
 import Data.Niagra.Value
 import Data.Niagra.Builder
 import Data.Niagra.Builder.Numbers

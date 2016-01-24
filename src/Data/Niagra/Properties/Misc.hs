@@ -14,7 +14,6 @@ module Data.Niagra.Properties.Misc
 where
   
 import Data.Niagra.Monad
-import Data.Niagra.DSL
 import Data.Niagra.Value
 import Data.Niagra.Builder
 

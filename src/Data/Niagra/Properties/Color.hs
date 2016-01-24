@@ -14,7 +14,6 @@ module Data.Niagra.Properties.Color
 where
   
 import Data.Niagra.Monad
-import Data.Niagra.DSL
 import Data.Niagra.Builder
 import Data.Niagra.Builder.Numbers
 import Data.Monoid
