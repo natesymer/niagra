@@ -67,11 +67,11 @@ rootScope sel act = NiagraT $ (lift $ runNiagraT act) >>= accumulate . f
 -- |Start accumulating a child scope with @sel@.
 childScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
 childScope sel (NiagraT acc) = NiagraT $ do
-  parent@(parentSel,_) <- getIncomplete
-  setIncomplete (parentSel <||> sel, mempty)
+  old@(parent,_) <- getIncomplete
+  setIncomplete (parent <||> sel, mempty)
   acc
   complete
-  setIncomplete parent
+  setIncomplete old
 
 -- |Add a declaration to the 'NiagraT' state.
 declaration :: (Monad m) => Text -> Builder -> NiagraT m ()

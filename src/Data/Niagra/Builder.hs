@@ -40,6 +40,8 @@ import qualified Data.String as STR
 
 import Data.Text.Internal (Text(..))
 
+-- TODO: ensure this is lazy
+
 -- A type alias for the 'AccumulatorT' used to accumulate
 -- builder strings
 type BuilderAccum s a = AccumulatorT Text (Buffer s) (ST s) a

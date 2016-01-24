@@ -71,7 +71,7 @@ bufferAppendText :: Text -> Int -> Buffer s -> ST s (Buffer s)
 bufferAppendText (Text (Array tbuf) (I# to#) _)
                  copyLen@(I# copyLen#)
                  (Buffer a l@(I# l#) remain) = ST $ \s ->
-  (# 
+  (#
     copyByteArray# tbuf (to# *# 2#)
                    a (l# *# 2#)
                    (copyLen# *# 2#)
@@ -89,7 +89,8 @@ bufferAppendWord16 (W16# w) (Buffer a l@(I# l#) r) = ST $ \s ->
 
 {- Text & Char operations -}
 
--- |Convert a char into either a 'Word16' or a pair of 'Word16's
+-- |Convert a char into either a 'Word16' or a
+-- pair of 'Word16's of UTF-16 encoded chars
 charToWord16 :: Char -> Either Word16 (Word16,Word16)
 charToWord16 c
   | o < 0x10000 = Left $ int2Word16 n

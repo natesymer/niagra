@@ -22,29 +22,32 @@ import Data.Foldable
 
 -- |Stack data structure.
 data Accumulation a = Empty
-                    | Accumulation
-                        (Accumulation a) -- ^ init
-                        a -- ^ last
+                    | Accumulation (Accumulation a) a
 
 {-# INLINE push #-}
+-- |Add an element to the end of an 'Accumulation'.
 push :: Accumulation a -> a -> Accumulation a
 push = Accumulation
 
 {-# INLINE pop #-}
+-- |Pop the top off an 'Accumulation'.
 pop :: Accumulation a -> Maybe (Accumulation a)
 pop Empty = Nothing
 pop (Accumulation xs _) = Just xs
 
 {-# INLINE popTup #-}
+-- |"unsnoc"
 popTup :: Accumulation a -> Maybe (Accumulation a, a)
 popTup Empty = Nothing
 popTup (Accumulation xs x) = Just (xs, x)
 
 {-# INLINE top #-}
+-- |Get the top element on an 'Accumulation'.
 top :: Accumulation a -> Maybe a
 top Empty = Nothing
 top (Accumulation _ x) = Just x
-                
+            
+-- |Construct an accumulation from a list.    
 fromList :: [a] -> Accumulation a
 fromList = f Empty
   where f acc [] = acc
