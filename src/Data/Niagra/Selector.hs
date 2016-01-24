@@ -101,20 +101,20 @@ buildSelector = f
     brackets = between '[' ']'
     curlyb = between '{' '}'
     quoted = between '"' '"' . fromText
-    attr e a v = brackets $ fromText a <> e <> "=" <> quoted v
+    attr e a v = brackets $ fromText a <> e <> singleton '=' <> quoted v
     f Null = mempty
     f (Raw v) = fromText v
-    f (Child a b) = f a <> ">" <> f b
-    f (Descendant a b) = f a <> " " <> f b
-    f (ImmediatePrecedence a b) = f a <> "+" <> f b
-    f (Precedence a b) = f a <> "~" <> f b
+    f (Child a b) = f a <> singleton '>' <> f b
+    f (Descendant a b) = f a <> singleton ' ' <> f b
+    f (ImmediatePrecedence a b) = f a <> singleton '+' <> f b
+    f (Precedence a b) = f a <> singleton '~' <> f b
     f (PseudoClass a n (Just b)) = f (PseudoClass a n Nothing) <> parens (f b)
-    f (PseudoClass a n Nothing) = f a <> ":" <> fromText n
+    f (PseudoClass a n Nothing) = f a <> singleton ':' <> fromText n
     f (PseudoType a n (Just b)) = f (PseudoType a n Nothing) <> parens (f b)
     f (PseudoType a n Nothing) = f a <> "::" <> fromText n
-    f (Class a cls) = f a <> "." <> fromText cls
-    f (Id a i) = f a <> "#" <> fromText i
-    f (SelectorList xs) = mconcat $ intersperse "," $ map f xs
+    f (Class a cls) = f a <> singleton '.' <> fromText cls
+    f (Id a i) = f a <> singleton '#' <> fromText i
+    f (SelectorList xs) = mconcat $ intersperse (singleton ',') $ map f xs
     f (AttrExistential s a) = f s <> brackets (fromText a)
     f (AttrEquality s a v) = f s <> attr mempty a v
     f (AttrWhitespaceListContains s a v) = f s <> attr "~" a v
@@ -130,14 +130,11 @@ buildSelector = f
                              <> fromText v
                              <> buildPairs pairs
       where buildPair (a,b) = fromText a <> singleton ':' <> b
-            buildPairs [] = ""
-            buildPairs x = " and " <> "(" <> mconcat (map buildPair pairs) <> ")"
+            buildPairs [] = mempty
+            buildPairs x = " and " <> parens (mconcat $ map buildPair x)
             buildOnly True = "only"
             buildOnly False = "not"
-  
--- TODO: Rewrite list concat functionality elsewhere
---       and use monoid instance to implement (<||>)
-  
+
 instance Monoid Selector where
   mempty = Null
   mappend Null x = x

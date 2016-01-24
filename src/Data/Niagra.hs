@@ -20,11 +20,8 @@ module Data.Niagra
   -- * CSS Crunching
   css,
   css',
-  cssBuilder,
-  cssBuilder',
   -- * Modules
   module Data.Niagra.At,
-  module Data.Niagra.Block,
   module Data.Niagra.Builder,
   module Data.Niagra.Builder.Numbers,
   module Data.Niagra.Monad,
@@ -37,7 +34,6 @@ module Data.Niagra
 where
 
 import Data.Niagra.At
-import Data.Niagra.Block
 import Data.Niagra.Builder
 import Data.Niagra.Builder.Numbers
 import Data.Niagra.Monad
@@ -50,19 +46,9 @@ import Data.Niagra.Value
 import Data.Text (Text)
 
 -- |Start a CSS declaration in monad @m@.
-css :: (Monad m) => NiagraT m () -- ^ the action to render
-                 -> m Text -- ^ minified CSS
-css = fmap toText . cssBuilder
+css :: (Monad m) => NiagraT m () -> m Text
+css = fmap toText . runNiagraT
 
 -- |Non-monadic vesion of 'css'.
 css' :: Niagra () -> Text
-css' = toText . cssBuilder'
-
--- |Start a CSS declaration in monad @m@ that returns a 'Builder'.
-cssBuilder :: (Monad m) => NiagraT m () -- ^ the action to render
-                        -> m Builder -- ^ builder that builds CSS
-cssBuilder = fmap (foldMap buildBlock) . runNiagraT
-
--- |Non-monadic version of 'cssBuilder'.
-cssBuilder' :: Niagra () -> Builder 
-cssBuilder' = foldMap buildBlock . runNiagra
+css' = toText . runNiagra

@@ -35,7 +35,7 @@ import GHC.ST
 import GHC.Word (Word16(..))
 
 import Data.Char
-import Data.Text.Internal (Text(..),safe)
+import Data.Text.Internal (Text(..))
 import Data.Text.Array (Array(..))
 
 -- |Buffer used when evaluating builders
@@ -80,8 +80,8 @@ bufferAppendText (Text (Array tbuf) (I# to#) _)
   #)
   
 -- |Append a 'Word16' to a 'Buffer'.
-bufferAppendWord16 :: Buffer s -> Word16 -> ST s (Buffer s)
-bufferAppendWord16 (Buffer a l@(I# l#) r) (W16# w) = ST $ \s ->
+bufferAppendWord16 :: Word16 -> Buffer s -> ST s (Buffer s)
+bufferAppendWord16 (W16# w) (Buffer a l@(I# l#) r) = ST $ \s ->
   (#
     writeWord16Array# a l# w s,
     Buffer a (l+1) (r-1)
@@ -92,13 +92,14 @@ bufferAppendWord16 (Buffer a l@(I# l#) r) (W16# w) = ST $ \s ->
 -- |Convert a char into either a 'Word16' or a pair of 'Word16's
 charToWord16 :: Char -> Either Word16 (Word16,Word16)
 charToWord16 c
-  | o < 0x10000 = Left $ intToWord16 n
-  | otherwise = Right $ (intToWord16 lo, intToWord16 hi)
-  where !o@(I# n) = ord $ safe c
+  | o < 0x10000 = Left $ int2Word16 n
+  | I# (n `andI#` 0x1ff800#) == 0xd800 = Left 0xfffd -- see comment above 'Data.Text.Internal.safe'
+  | otherwise = Right (int2Word16 lo, int2Word16 hi)
+  where !o@(I# n) = ord c
         m = n -# 0x10000#
         lo = (m `uncheckedIShiftRA64#` 10#) +# 0xD800#
         hi = (m `andI#` 0x3FF#) +# 0xDC00#
-        intToWord16 i = W16# (int2Word# i)
+        int2Word16 i = W16# (int2Word# i)
 
 -- |Remove 'Word16's off the front of a strict 'text'
 -- without having to copy it.

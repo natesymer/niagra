@@ -65,7 +65,3 @@ instance (Monoid a) => Monoid (Accumulation a) where
   Empty `mappend` b = b
   a `mappend` Empty = a
   a `mappend` (Accumulation xs x) = Accumulation (a `mappend` xs) x
-    
-    
-    
-     

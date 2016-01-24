@@ -27,14 +27,14 @@ module Data.Niagra.Monad
   (.=)
 )
 where
-  
-import Data.Niagra.Block
+
 import Data.Niagra.Selector
 import Data.Niagra.AccumulatorT
-import Data.Niagra.Accumulation
 import Data.Niagra.Builder
 
 import Data.Text (Text)
+import Data.Monoid
+import Data.Foldable
 
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
@@ -42,39 +42,49 @@ import Control.Monad.Identity
 
 -- TODO: make accumulated state be a Builder.
 
-newtype NiagraT m a = NiagraT (AccumulatorT Block Block m a)
+-- TODO: make incomp state an unboxed tuple
+
+newtype NiagraT m a = NiagraT (AccumulatorT Builder (Selector,Builder) m a)
   deriving (Functor,Applicative,Monad,MonadIO)
   
 type Niagra a = NiagraT Identity a
 
 -- |Evaluate a 'NiagraT' monadic action.
-runNiagraT :: (Monad m) => NiagraT m () -> m (Accumulation Block)
-runNiagraT (NiagraT acc) = snd' <$> run
+runNiagraT :: (Monad m) => NiagraT m () -> m Builder
+runNiagraT (NiagraT acc) = fold . snd' <$> run
   where snd' (_,v,_) = v
-        emptyState = return $ Block Null mempty
-        run = evalAccumulatorT acc return emptyState
+        emptyState = return (Null,mempty)
+        run = evalAccumulatorT acc (return . buildIncomp) emptyState
+        buildIncomp (_,EmptyBuilder) = EmptyBuilder
+        buildIncomp (s,b) = buildSelector s <> singleton '{' <> b <> singleton '}'
         
 -- |Evaluate a 'Niagra' monadic action.
-runNiagra :: Niagra () -> Accumulation Block
+runNiagra :: Niagra () -> Builder
 runNiagra = runIdentity . runNiagraT
 
 -- |Start a root scope.
 rootScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
-rootScope sel act = NiagraT $ (lift $ runNiagraT act) >>= add
-  where add = accumulate . Block sel . foldMap buildBlock
-  
+rootScope sel act = NiagraT $ (lift $ runNiagraT act) >>= accumulate . f
+  where f EmptyBuilder = EmptyBuilder
+        f b = buildSelector sel <> singleton '{' <> b <> singleton '}'
+
 -- |Start accumulating a child scope with @sel@.
 childScope :: (Monad m) => Selector -> NiagraT m () -> NiagraT m ()
 childScope sel (NiagraT acc) = NiagraT $ do
-  parent@(Block parentSel _) <- getIncomplete
-  setIncomplete $ Block (parentSel <||> sel) mempty
+  parent@(parentSel,_) <- getIncomplete
+  setIncomplete (parentSel <||> sel, mempty)
   acc
   complete
   setIncomplete parent
 
 -- |Add a declaration to the 'NiagraT' state.
 declaration :: (Monad m) => Text -> Builder -> NiagraT m ()
-declaration k v = NiagraT $ incomplete $ \b -> return $ appendDeclaration b k v
+declaration k v = NiagraT $ incomplete f
+  where
+    f (s,EmptyBuilder) = return (s,b')
+      where b' = fromText k <> singleton ':' <> v
+    f (s,b) = return (s,b')
+      where b' = b <> singleton ';' <> fromText k <> singleton ':' <> v
 
 -- |Operator equivalent of 'block'.
 infix 0 ?

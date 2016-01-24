@@ -1,7 +1,7 @@
 name:                niagra
 version:             0.2.2
-synopsis:            CSS EDSL for Haskell
-description:         CSS EDSL for Haskell
+synopsis:            High performance CSS EDSL
+description:         High performance CSS EDSL
 homepage:            https://github.com/fhsjaagshs/niagra
 license:             MIT
 license-file:        LICENSE
@@ -18,7 +18,6 @@ library
   ghc-options:       -fwarn-unused-imports
   exposed-modules:   Data.Niagra
                      Data.Niagra.Monad
-                     Data.Niagra.Block
                      Data.Niagra.Selector
                      Data.Niagra.Selector.Tags
                      Data.Niagra.Selector.Combinators

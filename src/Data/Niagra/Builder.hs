@@ -16,6 +16,7 @@ based on 'Data.Text.Lazy.Builder'.
 module Data.Niagra.Builder
 (
   Builder(..),
+  runBuilder,
   singleton,
   fromString,
   fromText,
@@ -53,7 +54,7 @@ runBuilder (Builder acc) = do
   (_,sq,_) <- run
   return $ toList sq
   where
-    run = evalAccumulatorT acc' freezeBuffer mkIncomp-- runAccumulatorT acc' freezeBuffer mkIncomp S.empty
+    run = evalAccumulatorT acc' freezeBuffer mkIncomp
     mkIncomp = newBuffer 128
     acc' = do
       acc
@@ -63,33 +64,29 @@ runBuilder (Builder acc) = do
         complete
 
 instance Monoid Builder where
-  mempty  = empty
-  mappend = appendBuilder
+  mempty = EmptyBuilder 
+  mappend EmptyBuilder a = a
+  mappend a EmptyBuilder = a
+  mappend (Builder a) (Builder b) = Builder $ a >> b
   
 instance STR.IsString Builder where
   -- creating a builder from a lazy 'Text' is faster
   -- than creating one from a 'String'
   fromString [c] = singleton c
   fromString s = fromLazyText $ TL.pack s
-  
+
 -- | O(1) determine if a builder is empty.
 isEmpty :: Builder -> Bool
 isEmpty EmptyBuilder = True
 isEmpty _ = False
 
--- | O(1) create an empty 'Builder'
-{-# INLINE empty #-}
-empty :: Builder
-empty = EmptyBuilder
-
--- biggest overhead comes from the binding operator
 -- | O(1) create a 'Builder' from a single 'Char'.
 singleton :: Char -> Builder
 singleton c = Builder $ appendChar c
 
 -- | O(1) create a 'Builder' from a 'String'.
 fromString :: String -> Builder
-fromString [] = empty
+fromString [] = EmptyBuilder
 fromString s = Builder $ mapM_ appendChar s
 
 -- | O(1) create a 'Builder' from a 'Text'.
@@ -100,12 +97,6 @@ fromText t = Builder $ appendText t
 fromLazyText :: TL.Text -> Builder
 fromLazyText tl = Builder $ mapM_ appendText $ TL.toChunks tl
 
--- | O(1) append two 'Builder's.
-appendBuilder :: Builder -> Builder -> Builder
-appendBuilder EmptyBuilder a = a
-appendBuilder a EmptyBuilder = a
-appendBuilder (Builder a) (Builder b) = Builder $ a >> b
-  
 -- | O(n) Turn a 'Builder' into a 'Text'. While 'singleton', 'fromString',
 -- 'fromText', 'empty', and 'appendBuilder' don't do any direct processing,
 -- /the monadic action they construct gets evaluated here/. @n@ is the length of
@@ -115,7 +106,7 @@ toText = TL.toStrict . toLazyText
 
 -- |Lazy version of 'toText'.
 toLazyText :: Builder -> TL.Text
-toLazyText b = runST $ TL.fromChunks <$> runBuilder b
+toLazyText b = TL.fromChunks $ runST $ runBuilder b
 
 {-
 
@@ -129,20 +120,15 @@ inside 'AccumulatorT' to do the heavy lifting
 builderAppendWord16 :: Word16 -> BuilderAccum s ()
 builderAppendWord16 w = do
   remain <- bufferRemaining <$> getIncomplete
-  if remain == 0
-    then do
-      complete
-      builderAppendWord16 w
-    else incomplete $ flip bufferAppendWord16 w
+  when (remain == 0) complete
+  incomplete $ bufferAppendWord16 w
 
 -- |Append a char to the end of a Builder's accumulation.
 appendChar :: Char -> BuilderAccum s ()
-appendChar = either writeSingle writeDouble . charToWord16
-  where
-    writeSingle = builderAppendWord16
-    writeDouble (lo,hi) = do
-      builderAppendWord16 lo
-      builderAppendWord16 hi
+appendChar = either builderAppendWord16 writeDouble . charToWord16
+  where writeDouble (lo,hi) = do
+          builderAppendWord16 lo
+          builderAppendWord16 hi
 
 -- |Append a 'Text' to the end of a Builder's accumulation.
 appendText :: Text -> BuilderAccum s ()
