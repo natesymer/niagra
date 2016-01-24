@@ -12,7 +12,7 @@ combination of total CSS rendering state (blocks) in the writer state
 & a state of the currently rendering block in the readwrite state.
 -}
 
-{-# LANGUAGE GeneralizedNewtypeDeriving, TupleSections #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Data.Niagra.Monad
 (
   NiagraT(..),
@@ -40,13 +40,9 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Identity
 
--- TODO: make accumulated state be a Builder.
-
--- TODO: make incomp state an unboxed tuple
-
 newtype NiagraT m a = NiagraT (AccumulatorT Builder (Selector,Builder) m a)
   deriving (Functor,Applicative,Monad,MonadIO)
-  
+
 type Niagra a = NiagraT Identity a
 
 -- |Evaluate a 'NiagraT' monadic action.
@@ -79,12 +75,12 @@ childScope sel (NiagraT acc) = NiagraT $ do
 
 -- |Add a declaration to the 'NiagraT' state.
 declaration :: (Monad m) => Text -> Builder -> NiagraT m ()
-declaration k v = NiagraT $ incomplete f
+declaration k v = NiagraT $ incomplete (uncurry f)
   where
-    f (s,EmptyBuilder) = return (s,b')
-      where b' = fromText k <> singleton ':' <> v
-    f (s,b) = return (s,b')
-      where b' = b <> singleton ';' <> fromText k <> singleton ':' <> v
+    f s EmptyBuilder = let b' = fromText k <> singleton ':' <> v
+                       in return (s,b')
+    f s b = let b' = b <> singleton ';' <> fromText k <> singleton ':' <> v
+            in return (s,b')
 
 -- |Operator equivalent of 'block'.
 infix 0 ?

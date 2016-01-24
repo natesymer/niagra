@@ -16,7 +16,7 @@ unitPx :: Builder
 unitPx = (px 30)
 
 basic :: Builder
-basic = cssBuilder' $ do
+basic = runNiagra $ do
   a # "title" ? do
     "background-color" .= "red"
     "color"            .= "green"
@@ -52,7 +52,7 @@ basic = cssBuilder' $ do
       "background-color" .= "lightgreen"
       
 wordlist :: Builder
-wordlist = cssBuilder' $ do
+wordlist = runNiagra $ do
   cls "wordlist-view" ? do
     borderLeft ["solid", px 2, hex 0x80B9B4]
     "*" ? fontSize (px 20) -- Change this to change the size of the wordlist.
