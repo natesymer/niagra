@@ -13,6 +13,8 @@ frozen into a strict 'Text'.
 
 -}
 
+-- TODO unwrap bufferLength & bufferRemaining
+
 {-# LANGUAGE MagicHash, BangPatterns, UnboxedTuples, TupleSections #-}
 module Data.Niagra.Builder.Buffer
 (
@@ -31,12 +33,13 @@ where
 
 import GHC.Prim
 import GHC.Exts
-import GHC.ST
 import GHC.Word (Word16(..))
 
 import Data.Char
 import Data.Text.Internal (Text(..))
 import Data.Text.Array (Array(..))
+
+import Control.Monad.Primitive
 
 -- |Buffer used when evaluating builders
 data Buffer s = Buffer {
@@ -48,29 +51,29 @@ data Buffer s = Buffer {
 {- Buffer Operations -}
 
 -- |Shrink a buffer to its length.
-shrinkBuffer :: Buffer s -> ST s (Buffer s)
+shrinkBuffer :: PrimMonad m => Buffer (PrimState m) -> m (Buffer (PrimState m))
 shrinkBuffer b@(Buffer _ _ 0) = return b
-shrinkBuffer (Buffer a (I# l#) _) = ST $ \s ->
+shrinkBuffer (Buffer a (I# l#) _) = primitive $ \s ->
   (#
   shrinkMutableByteArray# a (l# *# 2#) s,
   Buffer a (I# l#) (I# l#)
   #)
 
 -- |Freeze a buffer into a strict 'Text'.
-freezeBuffer :: Buffer s -> ST s Text
-freezeBuffer (Buffer a l _) = ST $ \s -> case unsafeFreezeByteArray# a s of
+freezeBuffer :: PrimMonad m => Buffer (PrimState m) -> m Text
+freezeBuffer (Buffer a l _) = primitive $ \s -> case unsafeFreezeByteArray# a s of
   (# s', ary #) -> (# s', Text (Array ary) 0 l #)
 
 -- |Create a new *unpinned* buffer inside the GC.
-newBuffer :: Int -> ST s (Buffer s)
-newBuffer i@(I# aryLen) = ST $ \s -> case newByteArray# (aryLen *# 2#) s of
+newBuffer :: PrimMonad m => Int -> m (Buffer (PrimState m))
+newBuffer i@(I# aryLen) = primitive $ \s -> case newByteArray# (aryLen *# 2#) s of
   (# s', a #) -> (# s', Buffer a 0 i #)
   
 -- |Append a strict 'Text' to a 'Buffer'.
-bufferAppendText :: Text -> Int -> Buffer s -> ST s (Buffer s)
+bufferAppendText :: PrimMonad m => Text -> Int -> Buffer (PrimState m) -> m (Buffer (PrimState m))
 bufferAppendText (Text (Array tbuf) (I# to#) _)
                  copyLen@(I# copyLen#)
-                 (Buffer a l@(I# l#) remain) = ST $ \s ->
+                 (Buffer a l@(I# l#) remain) = primitive $ \s ->
   (#
     copyByteArray# tbuf (to# *# 2#)
                    a (l# *# 2#)
@@ -80,8 +83,8 @@ bufferAppendText (Text (Array tbuf) (I# to#) _)
   #)
   
 -- |Append a 'Word16' to a 'Buffer'.
-bufferAppendWord16 :: Word16 -> Buffer s -> ST s (Buffer s)
-bufferAppendWord16 (W16# w) (Buffer a l@(I# l#) r) = ST $ \s ->
+bufferAppendWord16 :: PrimMonad m => Word16 -> Buffer (PrimState m) -> m (Buffer (PrimState m))
+bufferAppendWord16 (W16# w) (Buffer a l@(I# l#) r) = primitive $ \s ->
   (#
     writeWord16Array# a l# w s,
     Buffer a (l+1) (r-1)

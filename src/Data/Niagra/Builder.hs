@@ -12,7 +12,7 @@ based on 'Data.Text.Lazy.Builder'.
 
 -}
 
-{-# LANGUAGE Rank2Types, TupleSections #-}
+{-# LANGUAGE GADTs, Rank2Types, TupleSections #-}
 module Data.Niagra.Builder
 (
   Builder(..),
@@ -42,24 +42,20 @@ import Data.Text.Internal (Text(..))
 
 -- TODO: ensure this is lazy
 
--- A type alias for the 'AccumulatorT' used to accumulate
--- builder strings
-type BuilderAccum s a = AccumulatorT Text (Buffer s) (ST s) a
+-- |Builder data structure. Builders accumulate 'Char's & 'Text's.
+data Builder = EmptyBuilder | Builder (forall s. AccumulatorT Text (Buffer s) (ST s) ())
 
--- |Builder data structure. Builders accumulate 'Char's &
--- 'Text's.
-data Builder = EmptyBuilder | Builder (forall s. BuilderAccum s ())
-
+-- TODO: directly to a lazy text
 runBuilder :: Builder -> [Text]
 runBuilder EmptyBuilder = []
-runBuilder (Builder acc) = runST $ do
-  (_,sq,_) <- run
-  return $ toList sq
+runBuilder (Builder acc) = runST st
   where
-    run = evalAccumulatorT acc' freezeBuffer mkIncomp
-    mkIncomp = newBuffer 128
-    acc' = do
-      acc
+    st :: forall s. ST s [Text]
+    st = f <$> (run $ flushed acc)
+    f (_,v,_) = toList v
+    run b = evalAccumulatorT b freezeBuffer $ newBuffer 128
+    flushed b = do
+      b
       l <- bufferLength <$> getIncomplete
       when (l > 0) $ do
         incomplete shrinkBuffer
@@ -98,6 +94,7 @@ fromText t = Builder $ appendText t
 -- | O(1) create a 'Builder' from a lazy 'Text'.
 fromLazyText :: TL.Text -> Builder
 fromLazyText tl = Builder $ mapM_ appendText $ TL.toChunks tl
+-- fromLazyText = Builder . mapM_ appendText . TL.toChunks
 
 -- | O(n) Turn a 'Builder' into a 'Text'. While 'singleton', 'fromString',
 -- 'fromText', 'empty', and 'appendBuilder' don't do any direct processing,
@@ -119,21 +116,21 @@ inside 'AccumulatorT' to do the heavy lifting
 -}
 
 -- |Safely append a Word16 to the incomplete Buffer.
-builderAppendWord16 :: Word16 -> BuilderAccum s ()
+builderAppendWord16 :: Word16 -> AccumulatorT Text (Buffer s) (ST s) ()
 builderAppendWord16 w = do
   remain <- bufferRemaining <$> getIncomplete
   when (remain == 0) complete
   incomplete $ bufferAppendWord16 w
 
 -- |Append a char to the end of a Builder's accumulation.
-appendChar :: Char -> BuilderAccum s ()
+appendChar :: Char -> AccumulatorT Text (Buffer s) (ST s) ()
 appendChar = either builderAppendWord16 writeDouble . charToWord16
   where writeDouble (lo,hi) = do
           builderAppendWord16 lo
           builderAppendWord16 hi
 
 -- |Append a 'Text' to the end of a Builder's accumulation.
-appendText :: Text -> BuilderAccum s ()
+appendText :: Text -> AccumulatorT Text (Buffer s) (ST s) ()
 appendText t@(Text _ _ tl) = do
   remain <- bufferRemaining <$> getIncomplete
   if remain > tl
