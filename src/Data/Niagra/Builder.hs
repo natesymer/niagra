@@ -50,9 +50,9 @@ type BuilderAccum s a = AccumulatorT Text (Buffer s) (ST s) a
 -- 'Text's.
 data Builder = EmptyBuilder | Builder (forall s. BuilderAccum s ())
 
-runBuilder :: Builder -> ST s [Text]
-runBuilder EmptyBuilder = return []
-runBuilder (Builder acc) = do
+runBuilder :: Builder -> [Text]
+runBuilder EmptyBuilder = []
+runBuilder (Builder acc) = runST $ do
   (_,sq,_) <- run
   return $ toList sq
   where
@@ -108,7 +108,7 @@ toText = TL.toStrict . toLazyText
 
 -- |Lazy version of 'toText'.
 toLazyText :: Builder -> TL.Text
-toLazyText b = TL.fromChunks $ runST $ runBuilder b
+toLazyText = TL.fromChunks . runBuilder
 
 {-
 
