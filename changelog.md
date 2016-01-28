@@ -14,4 +14,7 @@ v 0.2.2
 - Performance & safety improvements
 	- Ensure characters inserted into 'Text' buffers are supported by 'Text'.
 	- Remove intermediate types such as 'Block'.
-	- Replace more instances of singleton 'String's read with IsString with singleton 'Char's.
+	- Dramatically improve 'Builder'
+		- More than 30% faster
+		- Ensure characters built into 'Text's by 'Builder' are safe
+		- Improve hex performance
