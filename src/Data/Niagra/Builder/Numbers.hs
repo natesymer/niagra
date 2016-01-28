@@ -8,7 +8,9 @@ where
 
 import Data.Niagra.Builder
 
-import Data.List
+import Data.Text.Internal.Fusion as TF
+import Data.Text.Internal.Fusion.Size
+
 import Data.Char
 import Data.Monoid
 import Numeric
@@ -29,21 +31,21 @@ decimal v
 hexadecimal :: (Integral a) => a -> Builder
 hexadecimal 0 = singleton '0'
 hexadecimal v
-  | v < 0 = nf v
-  | otherwise = f mempty v
+  | v < 0     = nf v
+  | otherwise =  f v
   where
-    nf v = let u 0 = Nothing
-               u b = let (q,r) = quotRem b 16
-                     in Just (15-(abs r),q)
-               digits = reverse $ addOne $ unfoldr u v
-               addOne [] = []
-               addOne (15:xs) = 0:addOne xs
-               addOne (x:xs) = x+1:xs
-           in mconcat $ map (singleton . hexChar) digits
-    f acc 0 = acc
-    f acc v = let (q,r) = quotRem v 16
-                  c = hexChar r
-              in f (singleton c <> acc) q
+    nf v = fromText $ TF.reverse $ Stream next (v,True) unknownSize
+      where next (0,_) = Done
+            next (v,True) = let (q,r) = quotRem v 16
+                                r' = 15 - (abs r)
+                            in Yield (hexChar (if r' == 15 then 0 else (r' + 1))) (q,r' == 15)
+            next (v,False) = let (q,r) = quotRem v 16
+                                 r' = 15 - (abs r)
+                             in Yield (hexChar r') (q,False)
+    f v = fromText $ TF.reverse $ Stream next v unknownSize
+      where next 0 = Done
+            next v = let (q,r) = quotRem v 16
+                     in Yield (hexChar r) q
     hexChar v
       | v < 10 = chr $ 48 + (fromIntegral v)
       | otherwise = chr $ 55 + (fromIntegral v)
