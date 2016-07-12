@@ -4,7 +4,7 @@ Description : 'Buffer' data structure for 'Builder'.
 Copyright   : (c) Nathaniel Symer, 2015
 License     : MIT
 Maintainer  : nate@symer.io
-Stability   : experimental
+Stability   : stable
 Portability : POSIX
 
 Provides a data structure for storing bytes
@@ -118,7 +118,7 @@ charToWord16 (C# c) = case n <# 0x10000# of
         !m = n -# 0x10000#
         !lo = (m `uncheckedIShiftRA64#` 10#) +# 0xD800#
         !hi = (m `andI#` 0x3FF#) +# 0xDC00#
-        int2Word16 i = W16# (int2Word# i)
+        int2Word16 i = W16# (narrow16Word# (int2Word# i)) -- TODO: make sure this converts to a Word16 and not just the platform word size
 
 -- |Remove 'Word16's off the front of a strict 'text'
 -- without having to copy it.

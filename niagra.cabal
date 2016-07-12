@@ -47,3 +47,10 @@ library
                      mtl,
                      text,
                      ghc-prim
+                     
+test-suite niagra-testsuite
+  type: exitcode-stdio-1.0
+  main-is: src/tests.hs
+  build-depends: base,
+                 QuickCheck,
+                 HUnit

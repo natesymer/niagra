@@ -1,3 +1,16 @@
+{-|
+Module      : Data.Niagra.At
+Description : @something actions
+Copyright   : (c) Nathaniel Symer, 2015
+License     : MIT
+Maintainer  : nate@symer.io
+Stability   : stable
+Portability : POSIX
+
+Provides functions for @media, @font-face, etc.
+-}
+
+
 {-# LANGUAGE OverloadedStrings #-}
 module Data.Niagra.Properties
 (

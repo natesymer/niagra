@@ -4,7 +4,7 @@ Description : Root module of Niagra
 Copyright   : (c) Nathaniel Symer, 2015
 License     : MIT
 Maintainer  : nate@symer.io
-Stability   : experimental
+Stability   : stable
 Portability : POSIX
 
 Provides a basic interface for defining CSS

@@ -4,7 +4,7 @@ Description : Selector type and combinator operators
 Copyright   : (c) Nathaniel Symer, 2015
 License     : MIT
 Maintainer  : nate@symer.io
-Stability   : experimental
+Stability   : stable
 Portability : POSIX
 
 Create & manipulate CSS selectors.

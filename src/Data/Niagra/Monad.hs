@@ -4,7 +4,7 @@ Description : NiagraT monad transformer
 Copyright   : (c) Nathaniel Symer, 2015
 License     : MIT
 Maintainer  : nate@symer.io
-Stability   : experimental
+Stability   : stable
 Portability : POSIX
 
 'NiagraT' is a monad transformer based on 'RWST'. It stores a

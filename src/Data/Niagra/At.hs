@@ -1,10 +1,10 @@
 {-|
 Module      : Data.Niagra.At
-Description : @something actions
+Description : CSS queries
 Copyright   : (c) Nathaniel Symer, 2015
 License     : MIT
 Maintainer  : nate@symer.io
-Stability   : experimental
+Stability   : stable
 Portability : POSIX
 
 Provides functions for @media, @font-face, etc.

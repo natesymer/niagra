@@ -4,7 +4,7 @@ Description : CSS Values
 Copyright   : (c) Nathaniel Symer, 2015
 License     : MIT
 Maintainer  : nate@symer.io
-Stability   : experimental
+Stability   : stable
 Portability : POSIX
 
 The 'Value' typeclass is designed to blur the distinction
